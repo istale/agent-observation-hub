@@ -15,11 +15,23 @@ from app.storage.db import init_db
 from app.storage.repositories import Repository
 from app.trace.raw_store import RawStore
 from app.trace.redaction import redact
-from app.ui.formatters import llm_response_view, taipei_time
+from app.ui.formatters import llm_response_view, pretty_json, taipei_time
 
 
 templates = Jinja2Templates(directory="app/ui/templates")
 templates.env.filters["taipei_time"] = taipei_time
+templates.env.filters["pretty_json"] = pretty_json
+
+
+def _load_call_payloads(call: dict) -> tuple[dict, dict[str, str]]:
+    store = RawStore.from_env()
+    payloads = {}
+    for key in ("request_ref", "response_ref"):
+        if call.get(key):
+            payloads[key.removesuffix("_ref")] = redact(store.read(call[key]))
+    if call.get("response_chunks_ref"):
+        payloads["chunks"] = redact(store.read_jsonl(call["response_chunks_ref"]))
+    return payloads, llm_response_view(payloads.get("response"), payloads.get("chunks"))
 
 
 def create_app() -> FastAPI:
@@ -43,11 +55,17 @@ def create_app() -> FastAPI:
     @app.get("/traces/{trace_id}", response_class=HTMLResponse)
     def trace_page(request: Request, trace_id: str):
         repo = Repository.from_env()
+        llm_calls = repo.list_llm_calls_for_trace(trace_id)
+        call_views = []
+        for call in llm_calls:
+            _, response_view = _load_call_payloads(call)
+            call_views.append({"call": call, "response_view": response_view})
         return templates.TemplateResponse(request, "trace.html", {
             "trace_id": trace_id,
             "run": repo.get_trace_run(trace_id),
             "events": repo.list_events(trace_id),
-            "llm_calls": repo.list_llm_calls_for_trace(trace_id),
+            "llm_calls": llm_calls,
+            "call_views": call_views,
             "correlations": repo.list_external_ids_for_trace(trace_id),
         })
 
@@ -58,13 +76,7 @@ def create_app() -> FastAPI:
         payloads = {}
         response_view = {"assistant_text": "", "reasoning_text": ""}
         if call:
-            store = RawStore.from_env()
-            for key in ("request_ref", "response_ref"):
-                if call.get(key):
-                    payloads[key.removesuffix("_ref")] = redact(store.read(call[key]))
-            if call.get("response_chunks_ref"):
-                payloads["chunks"] = redact(store.read_jsonl(call["response_chunks_ref"]))
-            response_view = llm_response_view(payloads.get("response"), payloads.get("chunks"))
+            payloads, response_view = _load_call_payloads(call)
         return templates.TemplateResponse(
             request,
             "llm_call.html",

@@ -5,8 +5,15 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from markupsafe import Markup, escape
+
 
 TAIPEI = ZoneInfo("Asia/Taipei")
+
+
+def pretty_json(value: Any) -> Markup:
+    text = json.dumps(value, ensure_ascii=False, indent=2)
+    return Markup(escape(text))
 
 
 def taipei_time(value: Any) -> str:

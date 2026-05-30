@@ -33,14 +33,14 @@
         <pre class="readable">{{ response_view.reasoning_text }}</pre>
       {% endif %}
       <h2>Redacted Request</h2>
-      {% if payloads.request is defined %}<pre>{{ payloads.request | tojson(indent=2) }}</pre>{% endif %}
+      {% if payloads.request is defined %}<pre>{{ payloads.request | pretty_json }}</pre>{% endif %}
       {% if payloads.response is defined %}
         <h2>Redacted Response JSON</h2>
-        <pre>{{ payloads.response | tojson(indent=2) }}</pre>
+        <pre>{{ payloads.response | pretty_json }}</pre>
       {% endif %}
       {% if payloads.chunks is defined %}
         <h2>Stream Chunks</h2>
-        <pre>{{ payloads.chunks | tojson(indent=2) }}</pre>
+        <pre>{{ payloads.chunks | pretty_json }}</pre>
       {% endif %}
     {% else %}
       <h1>LLM call not found</h1>

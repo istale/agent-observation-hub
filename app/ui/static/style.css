@@ -59,3 +59,23 @@ pre.readable {
 .muted {
   color: #66737d;
 }
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+details.llm-call-detail {
+  background: white;
+  border: 1px solid #dce1e4;
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+details.llm-call-detail summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-weight: 700;
+}

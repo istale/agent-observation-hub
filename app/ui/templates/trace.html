@@ -9,6 +9,48 @@
   <main>
     <p><a href="/">Home</a></p>
     <h1>Trace {{ trace_id }}</h1>
+    <h2>Timeline</h2>
+    <table>
+      <thead><tr><th>Timestamp</th><th>Event Type</th><th>Source</th><th>Status</th><th>Severity</th><th>Payload</th></tr></thead>
+      <tbody>
+      {% for event in events %}
+        <tr>
+          <td>{{ event.timestamp | taipei_time }}</td>
+          <td>{{ event.event_type }}</td>
+          <td>{{ event.source }}</td>
+          <td>{{ event.status }}</td>
+          <td>{{ event.severity }}</td>
+          <td>{% if event.payload_ref %}<a href="/api/raw/{{ event.payload_ref }}">{{ event.payload_ref }}</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <h2>LLM Calls</h2>
+    <div class="stack">
+      {% for item in call_views %}
+        {% set call = item.call %}
+        {% set response_view = item.response_view %}
+        <details open class="llm-call-detail">
+          <summary>
+            <span>{{ call.llm_call_id }}</span>
+            <span>{{ call.model }}</span>
+            <span>{{ call.status }}</span>
+            <span>{{ call.latency_ms }}ms</span>
+          </summary>
+          <p><a href="/llm-calls/{{ call.llm_call_id }}">Open full LLM call detail</a></p>
+          {% if response_view.assistant_text %}
+            <h3>Assistant</h3>
+            <pre class="readable">{{ response_view.assistant_text }}</pre>
+          {% else %}
+            <p class="muted">No assistant content captured.</p>
+          {% endif %}
+          {% if response_view.reasoning_text %}
+            <h3>Reasoning</h3>
+            <pre class="readable">{{ response_view.reasoning_text }}</pre>
+          {% endif %}
+        </details>
+      {% endfor %}
+    </div>
     <h2>Correlations</h2>
     {% if correlations %}
       <table>
@@ -28,28 +70,6 @@
     {% else %}
       <p class="muted">No correlations captured.</p>
     {% endif %}
-    <h2>Timeline</h2>
-    <table>
-      <thead><tr><th>Timestamp</th><th>Event Type</th><th>Source</th><th>Status</th><th>Severity</th><th>Payload</th></tr></thead>
-      <tbody>
-      {% for event in events %}
-        <tr>
-          <td>{{ event.timestamp | taipei_time }}</td>
-          <td>{{ event.event_type }}</td>
-          <td>{{ event.source }}</td>
-          <td>{{ event.status }}</td>
-          <td>{{ event.severity }}</td>
-          <td>{% if event.payload_ref %}<a href="/api/raw/{{ event.payload_ref }}">{{ event.payload_ref }}</a>{% endif %}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    <h2>LLM Calls</h2>
-    <ul>
-      {% for call in llm_calls %}
-        <li><a href="/llm-calls/{{ call.llm_call_id }}">{{ call.llm_call_id }}</a> {{ call.model }} {{ call.status }} {{ call.latency_ms }}ms</li>
-      {% endfor %}
-    </ul>
   </main>
 </body>
 </html>
