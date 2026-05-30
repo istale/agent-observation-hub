@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import Any
@@ -142,6 +143,9 @@ async def chat_completions(request: Request) -> Response:
                     yield part
                 _finish_call(repo, ctx, started, status="ok" if upstream.status_code < 400 else "error", http_status=upstream.status_code, chunks_ref=chunks_ref, usage=stream_usage or None)
             except Exception as exc:
+                _finish_call(repo, ctx, started, status="error", http_status=upstream.status_code, chunks_ref=chunks_ref, error=exc)
+                raise
+            except asyncio.CancelledError as exc:
                 _finish_call(repo, ctx, started, status="error", http_status=upstream.status_code, chunks_ref=chunks_ref, error=exc)
                 raise
             finally:

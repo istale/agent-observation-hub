@@ -46,10 +46,9 @@ Phase 1 makes `43180` the canonical documented Hub port. `8080` remains a tempor
 
 ## Highest-Risk Gaps
 
-1. **Client disconnect semantics are weak.** The stream iterator catches exceptions and writes `llm_error`, but disconnect-specific handling and cancellation tests are missing.
-2. **Streaming parsing is still best-effort.** Usage extraction now scans coalesced `data:` lines, but this is not a full SSE event-buffer parser.
-3. **Importer raw exposure is underdesigned.** Importers store unknown logs in `payload_json`; UI/API treatment of imported unknown logs is not yet governed by sensitivity rules.
-4. **Correlation is missing.** There is still no `external_ids` table for LiteLLM, Hermes, OpenClaw, Open WebUI, or Discord IDs.
+1. **Streaming parsing is still best-effort.** Usage extraction now scans coalesced `data:` lines, but this is not a full SSE event-buffer parser.
+2. **Importer raw exposure is underdesigned.** Importers store unknown logs in `payload_json`; UI/API treatment of imported unknown logs is not yet governed by sensitivity rules.
+3. **Correlation is missing.** There is still no `external_ids` table for LiteLLM, Hermes, OpenClaw, Open WebUI, or Discord IDs.
 
 ## Most Dangerous Data Leakage Points
 
@@ -63,7 +62,7 @@ Phase 1 makes `43180` the canonical documented Hub port. `8080` remains a tempor
 - The gateway writes chunks exactly as received from `httpx.aiter_bytes()`. Chunk boundaries may not align with SSE event boundaries.
 - `chunk_record()` tries to parse a chunk as one complete `data:` event. If providers split or coalesce SSE events, JSON parsing may be partial.
 - Final stream usage chunks are normalized when usage appears as parseable `data:` JSON in captured chunks.
-- Disconnect/cancellation handling is not covered by tests.
+- Disconnect/cancellation handling is covered by a regression test that ensures stream aborts finalize call/run status as error.
 
 ## Schema Gaps
 

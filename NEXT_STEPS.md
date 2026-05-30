@@ -22,7 +22,6 @@
 ## Known Issues
 
 - Streaming parser remains best-effort. It now scans coalesced `data:` lines for usage, but it is not yet a full SSE event-buffer parser.
-- Client-disconnect/cancellation behavior for streaming still needs explicit tests.
 - Importers are skeletons and do not yet parse native OpenClaw/Hermes sessions.
 - No correlation table exists yet for LiteLLM/Hermes/OpenClaw/Discord/Open WebUI IDs.
 - No OpenInference/OpenTelemetry preview API exists yet.
