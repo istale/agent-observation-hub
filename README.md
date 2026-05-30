@@ -27,7 +27,8 @@ pip install -e ".[dev]"
 
 ```sh
 cp .env.example .env
-export UPSTREAM_OPENAI_BASE_URL=http://localhost:4000
+export UPSTREAM_OPENAI_BASE_URL=http://127.0.0.1:4000
+export UPSTREAM_OPENAI_API_KEY=dummy
 export AOH_DATA_DIR=data
 export AOH_DATABASE_PATH=data/hub.sqlite3
 ```
@@ -36,6 +37,21 @@ Point OpenClaw or Hermes to this gateway as the OpenAI base URL:
 
 ```text
 http://127.0.0.1:8080/v1
+```
+
+The handoff target topology uses port `43180` for the gateway:
+
+```text
+OpenClaw / Hermes
+  -> Agent Observation Gateway: http://127.0.0.1:43180/v1
+  -> LiteLLM Proxy: http://127.0.0.1:4000/v1
+  -> Model endpoint
+```
+
+The current local Hermes validation used `8080`. To run the gateway on the handoff port instead:
+
+```sh
+PORT=43180 scripts/dev.sh
 ```
 
 Point this gateway upstream to LiteLLM:
@@ -89,6 +105,16 @@ curl -N http://127.0.0.1:8080/v1/chat/completions \
 ## Security Notes
 
 This is a local observation tool. Keep `ALLOW_RAW_VIEW=false` unless you are debugging locally. Raw archives can contain sensitive prompts, headers, tool inputs, and model outputs. The API protects against path traversal for raw refs, but the archive directory should still be treated as sensitive local data.
+
+Retention settings are present for governance planning:
+
+```sh
+RAW_RETENTION_DAYS=14
+REDACTED_RETENTION_DAYS=90
+METRICS_RETENTION_DAYS=365
+```
+
+Retention cleanup is not fully implemented in the MVP.
 
 ## MVP Limits
 
