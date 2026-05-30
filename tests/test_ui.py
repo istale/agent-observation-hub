@@ -121,6 +121,80 @@ def test_llm_call_ui_renders_unicode_json_readably(app_client):
     assert "\\u5929\\u547d" not in response.text
 
 
+def test_llm_call_ui_shows_raw_payload_when_payload_mode_is_raw(tmp_path, monkeypatch):
+    monkeypatch.setenv("AOH_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("AOH_DATABASE_PATH", str(tmp_path / "data" / "hub.sqlite3"))
+    monkeypatch.setenv("UPSTREAM_OPENAI_BASE_URL", "http://upstream.test")
+    monkeypatch.setenv("AOH_PAYLOAD_MODE", "raw")
+
+    from fastapi.testclient import TestClient
+
+    from app.config import get_settings
+    from app.main import create_app
+
+    get_settings.cache_clear()
+    app = create_app()
+    repo = Repository.from_env()
+    store = RawStore.from_env()
+    request_ref = store.write_json("trace_raw_ui", "request.json", {
+        "headers": {"authorization": "Bearer secret-token"},
+        "body": {"messages": [{"role": "user", "content": "天命（The Destiny）"}]},
+    })
+    response_ref = store.write_json("trace_raw_ui", "response.json", {
+        "choices": [{"message": {"role": "assistant", "content": "收到天命。"}}]
+    })
+    repo.upsert_run({"run_id": "run_raw_ui", "trace_id": "trace_raw_ui", "started_at": "2026-05-30T09:11:18Z", "status": "ok"})
+    repo.insert_llm_call({
+        "llm_call_id": "llm_raw_ui",
+        "trace_id": "trace_raw_ui",
+        "run_id": "run_raw_ui",
+        "model": "MiniMax-M2.7",
+        "endpoint": "/v1/chat/completions",
+        "started_at": "2026-05-30T09:11:18Z",
+        "status": "ok",
+        "request_ref": request_ref,
+        "response_ref": response_ref,
+    })
+
+    with TestClient(app) as client:
+        response = client.get("/llm-calls/llm_raw_ui")
+
+    assert response.status_code == 200
+    assert "Payload mode: raw" in response.text
+    assert "Raw Request JSON" in response.text
+    assert "Bearer secret-token" in response.text
+    assert "天命（The Destiny）" in response.text
+    assert "Redacted Request" not in response.text
+
+
+def test_llm_call_ui_shows_redacted_payload_when_payload_mode_is_redacted(app_client):
+    repo = Repository.from_env()
+    store = RawStore.from_env()
+    request_ref = store.write_json("trace_redacted_ui", "request.json", {
+        "headers": {"authorization": "Bearer secret-token"},
+        "body": {"messages": [{"role": "user", "content": "Hi"}]},
+    })
+    repo.upsert_run({"run_id": "run_redacted_ui", "trace_id": "trace_redacted_ui", "started_at": "2026-05-30T09:11:18Z", "status": "ok"})
+    repo.insert_llm_call({
+        "llm_call_id": "llm_redacted_ui",
+        "trace_id": "trace_redacted_ui",
+        "run_id": "run_redacted_ui",
+        "model": "MiniMax-M2.7",
+        "endpoint": "/v1/chat/completions",
+        "started_at": "2026-05-30T09:11:18Z",
+        "status": "ok",
+        "request_ref": request_ref,
+    })
+
+    response = app_client.get("/llm-calls/llm_redacted_ui")
+
+    assert response.status_code == 200
+    assert "Payload mode: redacted" in response.text
+    assert "Redacted Request JSON" in response.text
+    assert "secret-token" not in response.text
+    assert "[REDACTED]" in response.text
+
+
 def test_trace_ui_orders_sections_timeline_calls_correlations(app_client):
     repo = Repository.from_env()
     repo.upsert_run({"run_id": "run_order_ui", "trace_id": "trace_order_ui", "started_at": "2026-05-30T09:11:18Z", "status": "ok"})

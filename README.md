@@ -111,11 +111,16 @@ curl -N http://127.0.0.1:43180/v1/chat/completions \
 - `GET /api/llm-calls/{llm_call_id}`
 - `GET /api/raw/{payload_ref}`
 
-`/api/raw/{payload_ref}` returns redacted payloads by default. Raw payloads are only returned when `ALLOW_RAW_VIEW=true` and `raw=true` is passed.
+Payload rendering is controlled by `AOH_PAYLOAD_MODE`:
+
+- `AOH_PAYLOAD_MODE=raw`: UI pages and `/api/raw/{payload_ref}` return raw local payloads.
+- `AOH_PAYLOAD_MODE=redacted`: UI pages and `/api/raw/{payload_ref}` return redacted payloads.
+
+Raw mode is intended for trusted local/company-internal debugging and local LLM agents that need complete payloads to analyze agent and model behavior. `ALLOW_RAW_VIEW` is deprecated and is no longer the primary payload access switch.
 
 ## Security Notes
 
-This is a local observation tool. Keep `ALLOW_RAW_VIEW=false` unless you are debugging locally. Raw archives can contain sensitive prompts, headers, tool inputs, and model outputs. The API protects against path traversal for raw refs, but the archive directory should still be treated as sensitive local data.
+This is a local observation tool. Use `AOH_PAYLOAD_MODE=raw` only when every client that can reach the hub is trusted. Raw mode can expose Authorization headers, cookies, API keys, private prompts, user messages, agent memory, tool inputs, tool outputs, and file contents to the UI and `/api/raw/{payload_ref}`. Use `AOH_PAYLOAD_MODE=redacted` before sharing the hub, opening it to a network, or enabling cloud/exporter integrations. The API still protects against path traversal for raw refs, and the archive directory should always be treated as sensitive local data.
 
 Retention settings are present for governance planning:
 

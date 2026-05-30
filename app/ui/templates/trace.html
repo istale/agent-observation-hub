@@ -26,6 +26,7 @@
       </tbody>
     </table>
     <h2>LLM Calls</h2>
+    <p class="muted">Payload mode: {{ payload_mode }}</p>
     <div class="stack">
       {% for item in call_views %}
         {% set call = item.call %}

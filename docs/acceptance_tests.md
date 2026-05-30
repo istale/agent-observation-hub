@@ -85,17 +85,17 @@ Steps:
    - `password`
    - `api_key`
    - cookie header
-2. Fetch raw API without `raw=true`.
-3. Fetch raw API with `raw=true` while `ALLOW_RAW_VIEW=false`.
-4. Open UI LLM call detail.
+2. Set `AOH_PAYLOAD_MODE=redacted` and fetch raw API.
+3. Open UI LLM call detail in redacted mode.
+4. Set `AOH_PAYLOAD_MODE=raw` and fetch raw API.
+5. Open UI LLM call detail in raw mode.
 
 Expected:
 
-- Default API response is redacted.
-- `ALLOW_RAW_VIEW=false` prevents raw output even with `raw=true`.
-- Authorization, Bearer token, email, password/token/secret/key fields are redacted.
-- Cookie is redacted after the stabilization fix.
-- UI never displays raw secrets by default.
+- `AOH_PAYLOAD_MODE=redacted` prevents raw output.
+- Redacted mode UI hides Authorization, Bearer token, email, password/token/secret/key fields, and cookie values.
+- `AOH_PAYLOAD_MODE=raw` exposes raw payloads for trusted local/company-internal analysis.
+- Raw mode UI and `/api/raw/{payload_ref}` expose raw secrets by design.
 
 ## Test 5: Importer
 

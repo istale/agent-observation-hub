@@ -11,10 +11,9 @@ from app.api.runs import router as runs_router
 from app.api.traces import router as traces_router
 from app.gateway.openai_proxy import router as openai_router
 from app.logging_config import configure_logging
+from app.payloads import current_payload_mode, payload_label, read_payload
 from app.storage.db import init_db
 from app.storage.repositories import Repository
-from app.trace.raw_store import RawStore
-from app.trace.redaction import redact
 from app.ui.formatters import llm_response_view, pretty_json, taipei_time
 
 
@@ -24,13 +23,12 @@ templates.env.filters["pretty_json"] = pretty_json
 
 
 def _load_call_payloads(call: dict) -> tuple[dict, dict[str, str]]:
-    store = RawStore.from_env()
     payloads = {}
     for key in ("request_ref", "response_ref"):
         if call.get(key):
-            payloads[key.removesuffix("_ref")] = redact(store.read(call[key]))
+            payloads[key.removesuffix("_ref")] = read_payload(call[key])
     if call.get("response_chunks_ref"):
-        payloads["chunks"] = redact(store.read_jsonl(call["response_chunks_ref"]))
+        payloads["chunks"] = read_payload(call["response_chunks_ref"])
     return payloads, llm_response_view(payloads.get("response"), payloads.get("chunks"))
 
 
@@ -67,6 +65,7 @@ def create_app() -> FastAPI:
             "llm_calls": llm_calls,
             "call_views": call_views,
             "correlations": repo.list_external_ids_for_trace(trace_id),
+            "payload_mode": current_payload_mode(),
         })
 
     @app.get("/llm-calls/{llm_call_id}", response_class=HTMLResponse)
@@ -80,7 +79,13 @@ def create_app() -> FastAPI:
         return templates.TemplateResponse(
             request,
             "llm_call.html",
-            {"call": call, "payloads": payloads, "response_view": response_view},
+            {
+                "call": call,
+                "payloads": payloads,
+                "response_view": response_view,
+                "payload_mode": current_payload_mode(),
+                "payload_label": payload_label(),
+            },
         )
 
     return app

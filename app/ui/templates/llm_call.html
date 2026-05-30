@@ -22,6 +22,7 @@
         <dt>Chunks</dt><dd>{% if call.response_chunks_ref %}<a href="/api/raw/{{ call.response_chunks_ref }}">{{ call.response_chunks_ref }}</a>{% endif %}</dd>
       </dl>
       <h2>Readable Response</h2>
+      <p class="muted">Payload mode: {{ payload_mode }}</p>
       {% if response_view.assistant_text %}
         <h3>Assistant</h3>
         <pre class="readable">{{ response_view.assistant_text }}</pre>
@@ -32,14 +33,14 @@
         <h3>Reasoning</h3>
         <pre class="readable">{{ response_view.reasoning_text }}</pre>
       {% endif %}
-      <h2>Redacted Request</h2>
+      <h2>{{ payload_label }} Request JSON</h2>
       {% if payloads.request is defined %}<pre>{{ payloads.request | pretty_json }}</pre>{% endif %}
       {% if payloads.response is defined %}
-        <h2>Redacted Response JSON</h2>
+        <h2>{{ payload_label }} Response JSON</h2>
         <pre>{{ payloads.response | pretty_json }}</pre>
       {% endif %}
       {% if payloads.chunks is defined %}
-        <h2>Stream Chunks</h2>
+        <h2>{{ payload_label }} Stream Chunks</h2>
         <pre>{{ payloads.chunks | pretty_json }}</pre>
       {% endif %}
     {% else %}

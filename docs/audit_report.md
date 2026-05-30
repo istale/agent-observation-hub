@@ -39,7 +39,7 @@ Phase 1 makes `43180` the canonical documented Hub port. `8080` remains a tempor
 
 - Raw payloads are stored on disk, not directly in SQLite.
 - SQLite contains metadata and payload refs.
-- API raw endpoint is redacted by default and only returns raw when `ALLOW_RAW_VIEW=true` and `raw=true`.
+- API raw endpoint follows `AOH_PAYLOAD_MODE`: raw mode returns raw local payloads, redacted mode returns redacted payloads.
 - Raw archive path resolution blocks `payload_ref` path traversal outside the archive root.
 - Streaming chunks are forwarded and appended to JSONL.
 - Hermes integration has already generated real traces with `MiniMax-M2.7`.
@@ -53,7 +53,7 @@ Phase 1 makes `43180` the canonical documented Hub port. `8080` remains a tempor
 ## Most Dangerous Data Leakage Points
 
 - Full request archives contain system prompts, tool outputs, session context, and authorization headers before redaction.
-- `/api/raw/{payload_ref}?raw=true` can expose raw local payloads if `ALLOW_RAW_VIEW=true`.
+- `/api/raw/{payload_ref}` can expose raw local payloads when `AOH_PAYLOAD_MODE=raw`.
 - Importer `payload_json` can put unknown log content directly into SQLite instead of raw archive.
 - Cloud exporters are no-op today, but future implementations must default to disabled and redacted-only unless explicitly configured.
 
