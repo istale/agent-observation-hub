@@ -4,7 +4,7 @@
 
 Agent Observation Hub is observation-first. For private company deployments, operators often need to see the exact request and response payloads sent through the agent system. If the UI redacts payloads too early, users cannot judge whether the redacted data was actually sensitive, whether redaction hid an important context assembly bug, or whether the agent/model received the right information.
 
-This spec defines a configurable UI payload policy so the UI can operate in raw-first mode for private/local observation while preserving redaction support for safer modes and future exporters.
+This spec defines a configurable payload policy so the UI and local raw API can operate in raw-first mode for private/local observation while preserving redaction support for safer modes and future exporters.
 
 ## Problem
 
@@ -26,23 +26,23 @@ Agent systems change quickly, and observation quality is more important than pre
 
 ## Design Goal
 
-Support two UI payload modes:
+Support two payload modes:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
-AOH_UI_PAYLOAD_MODE=redacted
+AOH_PAYLOAD_MODE=raw
+AOH_PAYLOAD_MODE=redacted
 ```
 
 Recommended local/private default:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
+AOH_PAYLOAD_MODE=raw
 ```
 
 Recommended shared/demo/cloud/exporter default:
 
 ```text
-AOH_UI_PAYLOAD_MODE=redacted
+AOH_PAYLOAD_MODE=redacted
 ```
 
 ## Behavior
@@ -52,7 +52,7 @@ AOH_UI_PAYLOAD_MODE=redacted
 When:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
+AOH_PAYLOAD_MODE=raw
 ```
 
 UI behavior:
@@ -66,14 +66,20 @@ UI behavior:
 - UI should show a clear label:
   - `Payload mode: raw`
 
-This mode is intended for private/local/company-internal debugging.
+API behavior:
+
+- `GET /api/raw/{payload_ref}` returns raw payloads by default.
+- `raw=true` is not required in raw mode.
+- Path traversal protection still applies.
+
+This mode is intended for private/local/company-internal debugging and for local LLM agents that need complete payloads to analyze agent and model behavior.
 
 ### Redacted Mode
 
 When:
 
 ```text
-AOH_UI_PAYLOAD_MODE=redacted
+AOH_PAYLOAD_MODE=redacted
 ```
 
 UI behavior:
@@ -87,13 +93,18 @@ UI behavior:
 - UI should show a clear label:
   - `Payload mode: redacted`
 
+API behavior:
+
+- `GET /api/raw/{payload_ref}` returns redacted payloads by default.
+- The raw archive remains stored locally, but this endpoint does not expose it in redacted mode.
+
 This mode is intended for safer sharing, demos, and future multi-user/cloud scenarios.
 
 ## API Boundary
 
-This spec changes UI behavior only.
+This spec changes both UI rendering and the local raw API response policy.
 
-The raw API should keep its existing safety model:
+The raw API should keep its existing path safety model while changing response redaction behavior to follow the payload mode:
 
 ```text
 GET /api/raw/{payload_ref}
@@ -101,18 +112,19 @@ GET /api/raw/{payload_ref}
 
 Default:
 
-- returns redacted payload.
+- follows `AOH_PAYLOAD_MODE`.
 
 Raw access:
 
-- only when `ALLOW_RAW_VIEW=true`
-- and query includes `raw=true`
+- `AOH_PAYLOAD_MODE=raw` returns raw payloads by default.
+- `AOH_PAYLOAD_MODE=redacted` returns redacted payloads.
+- `ALLOW_RAW_VIEW` is deprecated for this raw-first local observation workflow and should not be used as the primary policy switch.
 
 Reason:
 
-- UI is a local operator console.
-- API may be consumed by scripts, exporters, or future remote clients.
-- Keeping the API conservative avoids accidental raw leakage.
+- UI and local helper agents are both observation clients.
+- Local LLM agents need complete request/response payloads to analyze prompt assembly, context, model behavior, and agent failures.
+- Shared, demo, cloud, and exporter use cases should set `AOH_PAYLOAD_MODE=redacted`.
 
 ## Raw Archive
 
@@ -124,14 +136,14 @@ Raw payloads remain stored locally under:
 data/raw/YYYY-MM-DD/trace_<trace_id>/
 ```
 
-The UI mode only controls how those local raw files are rendered.
+The payload mode controls how those local raw files are rendered through UI and exposed through `/api/raw/{payload_ref}`.
 
 ## Configuration
 
 Add setting:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
+AOH_PAYLOAD_MODE=raw
 ```
 
 Allowed values:
@@ -145,7 +157,7 @@ Update `.env.example`:
 
 ```text
 # raw is recommended for private/local observation; redacted is safer for shared demos.
-AOH_UI_PAYLOAD_MODE=raw
+AOH_PAYLOAD_MODE=raw
 ```
 
 ## UI Labels
@@ -201,7 +213,7 @@ Future exporters should default to redacted unless explicitly configured otherwi
 Given:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
+AOH_PAYLOAD_MODE=raw
 ```
 
 And request payload includes:
@@ -217,13 +229,14 @@ Expected:
 - LLM detail page shows `Bearer secret-token`.
 - LLM detail page shows `天命（The Destiny）`.
 - LLM detail page does not label the section as redacted.
+- `/api/raw/{payload_ref}` shows `Bearer secret-token`.
 
-### Test 2: Redacted UI Mode Hides Secret
+### Test 2: Redacted Mode Hides Secret
 
 Given:
 
 ```text
-AOH_UI_PAYLOAD_MODE=redacted
+AOH_PAYLOAD_MODE=redacted
 ```
 
 And request payload includes:
@@ -237,27 +250,39 @@ Expected:
 - LLM detail page shows `Redacted Request JSON`.
 - LLM detail page does not show `secret-token`.
 - LLM detail page shows `[REDACTED]`.
+- `/api/raw/{payload_ref}` does not show `secret-token`.
 
-### Test 3: API Raw Policy Unchanged
+### Test 3: API Follows Payload Mode
 
 Given:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
-ALLOW_RAW_VIEW=false
+AOH_PAYLOAD_MODE=raw
 ```
 
 Expected:
 
 - UI may show raw payload.
-- `/api/raw/{payload_ref}?raw=true` still does not return raw.
+- `/api/raw/{payload_ref}` returns raw payload.
+- `/api/raw/{payload_ref}?raw=true` also returns raw payload.
+
+Given:
+
+```text
+AOH_PAYLOAD_MODE=redacted
+```
+
+Expected:
+
+- UI shows redacted payload.
+- `/api/raw/{payload_ref}` returns redacted payload.
 
 ### Test 4: Invalid Mode Is Safe
 
 Given:
 
 ```text
-AOH_UI_PAYLOAD_MODE=invalid
+AOH_PAYLOAD_MODE=invalid
 ```
 
 Expected:
@@ -267,18 +292,19 @@ Expected:
 
 ## Implementation Plan
 
-1. Add `ui_payload_mode` to settings.
+1. Add `payload_mode` to settings.
 2. Add helper:
 
 ```text
-load_ui_payload(payload_ref) -> raw or redacted payload based on settings
+load_payload(payload_ref) -> raw or redacted payload based on settings
 ```
 
 3. Update `llm_call_page`.
 4. Update `trace_page` embedded response rendering.
-5. Update UI templates and labels.
-6. Update `.env.example` and README.
-7. Add tests for raw mode, redacted mode, unchanged API raw policy, and invalid mode fallback.
+5. Update `/api/raw/{payload_ref}` to follow `AOH_PAYLOAD_MODE`.
+6. Update UI templates and labels.
+7. Update `.env.example` and README.
+8. Add tests for raw mode, redacted mode, API payload policy, and invalid mode fallback.
 
 ## Recommendation
 
@@ -287,8 +313,7 @@ Proceed with this change before deeper evaluation/exporter work.
 For the current private company observation workflow, use:
 
 ```text
-AOH_UI_PAYLOAD_MODE=raw
-ALLOW_RAW_VIEW=true
+AOH_PAYLOAD_MODE=raw
 ```
 
-Keep redaction as a supported mode for future sharing, multi-user access, and cloud/exporter use cases.
+Keep redaction as a supported mode for future sharing, multi-user access, and cloud/exporter use cases. Raw mode should be treated as a trusted local/company-internal analysis mode and may expose secrets to any client that can reach the hub API.
