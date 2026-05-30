@@ -69,6 +69,17 @@ scripts/dev.sh
 
 Open the UI at `http://127.0.0.1:43180/`.
 
+## Maintenance
+
+If older traces were created before run finalization existed, use the backfill command to repair stale `running` rows:
+
+```sh
+.venv312/bin/python scripts/backfill_running_runs.py --db data/hub.sqlite3 --stale-minutes 60
+.venv312/bin/python scripts/backfill_running_runs.py --db data/hub.sqlite3 --stale-minutes 60 --apply
+```
+
+The first command is a dry-run. The second applies updates. Completed child LLM calls finalize their parent run as `ok` or `error`; stale running calls older than the threshold are marked `cancelled` and their parent run becomes `error`.
+
 ## Curl Non-Stream
 
 ```sh
