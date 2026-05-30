@@ -37,6 +37,8 @@ Out of scope:
 
 Migration:
 
+Add `app/storage/migrations/002_external_ids.sql` and update the migration runner to execute all `*.sql` files in lexical order. Migrations must be idempotent; `init_db()` should remain safe to call before every repository operation.
+
 ```sql
 CREATE TABLE IF NOT EXISTS external_ids (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +59,8 @@ CREATE INDEX IF NOT EXISTS idx_external_ids_lookup ON external_ids(source, key, 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_external_ids_unique
   ON external_ids(trace_id, COALESCE(run_id, ''), COALESCE(llm_call_id, ''), source, key, value);
 ```
+
+`value_hash` is a SHA-256 hex digest of `value`. In Phase 2, keep raw `value` because this is still a local-first single-user tool. Always populate `value_hash` for user-related ids (`user_id`, `discord_user_id`, `openwebui_user_id`) so future multi-user mode can move to hash-only display without reprocessing raw archives.
 
 Recommended sources:
 
@@ -103,6 +107,16 @@ Inbound request headers to persist:
 - `X-Discord-Channel-Id`
 - `X-Discord-Thread-Id`
 - `X-Discord-User-Id`
+
+Inbound source mapping:
+
+- `X-Hermes-Session-Id` -> `source=hermes`, `key=session_id`
+- `X-OpenClaw-Session-Id` -> `source=openclaw`, `key=session_id`
+- `X-OpenWebUI-Conversation-Id` -> `source=openwebui`, `key=conversation_id`
+- `X-Discord-Channel-Id` -> `source=discord`, `key=channel_id`
+- `X-Discord-Thread-Id` -> `source=discord`, `key=thread_id`
+- `X-Discord-User-Id` -> `source=discord`, `key=user_id`
+- Generic `X-Agent-Id`, `X-Session-Id`, `X-Channel`, `X-Channel-Id`, `X-Conversation-Id`, `X-Thread-Id`, `X-User-Id`, and `X-User-Hash` use `source=client` unless `X-Agent-Id` clearly contains `hermes` or `openclaw`, in which case use that source.
 
 Upstream response headers to persist:
 

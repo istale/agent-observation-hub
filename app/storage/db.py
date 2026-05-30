@@ -8,7 +8,7 @@ from typing import Iterator
 from app.config import get_settings
 
 
-MIGRATION = Path(__file__).parent / "migrations" / "001_init.sql"
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def connect(path: Path | None = None) -> sqlite3.Connection:
@@ -22,7 +22,8 @@ def connect(path: Path | None = None) -> sqlite3.Connection:
 
 def init_db(path: Path | None = None) -> None:
     with connect(path) as conn:
-        conn.executescript(MIGRATION.read_text(encoding="utf-8"))
+        for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            conn.executescript(migration.read_text(encoding="utf-8"))
 
 
 @contextmanager

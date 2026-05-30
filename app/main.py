@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from app.api.correlations import router as correlations_router
 from app.api.health import router as health_router
 from app.api.llm_calls import router as llm_calls_router
 from app.api.raw import router as raw_router
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(traces_router)
     app.include_router(runs_router)
     app.include_router(llm_calls_router)
+    app.include_router(correlations_router)
     app.include_router(raw_router)
 
     @app.get("/", response_class=HTMLResponse)
@@ -46,6 +48,7 @@ def create_app() -> FastAPI:
             "run": repo.get_trace_run(trace_id),
             "events": repo.list_events(trace_id),
             "llm_calls": repo.list_llm_calls_for_trace(trace_id),
+            "correlations": repo.list_external_ids_for_trace(trace_id),
         })
 
     @app.get("/llm-calls/{llm_call_id}", response_class=HTMLResponse)

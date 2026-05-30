@@ -9,6 +9,25 @@
   <main>
     <p><a href="/">Home</a></p>
     <h1>Trace {{ trace_id }}</h1>
+    <h2>Correlations</h2>
+    {% if correlations %}
+      <table>
+        <thead><tr><th>Source</th><th>Key</th><th>Value</th><th>Run</th><th>LLM Call</th></tr></thead>
+        <tbody>
+        {% for item in correlations %}
+          <tr>
+            <td>{{ item.source }}</td>
+            <td>{{ item.key }}</td>
+            <td><code>{{ item.value }}</code></td>
+            <td>{{ item.run_id }}</td>
+            <td>{% if item.llm_call_id %}<a href="/llm-calls/{{ item.llm_call_id }}">{{ item.llm_call_id }}</a>{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No correlations captured.</p>
+    {% endif %}
     <h2>Timeline</h2>
     <table>
       <thead><tr><th>Timestamp</th><th>Event Type</th><th>Source</th><th>Status</th><th>Severity</th><th>Payload</th></tr></thead>

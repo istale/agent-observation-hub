@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -117,3 +118,43 @@ class Repository:
     def get_llm_call(self, llm_call_id: str) -> dict[str, Any] | None:
         with db_connection(self.db_path) as conn:
             return _row(conn.execute("SELECT * FROM llm_calls WHERE llm_call_id = ?", (llm_call_id,)).fetchone())
+
+    def insert_external_id(self, data: dict[str, Any]) -> None:
+        fields = ["trace_id", "run_id", "llm_call_id", "source", "key", "value", "value_hash"]
+        values = {field: data.get(field) for field in fields}
+        values["value"] = str(values["value"])
+        values["value_hash"] = values.get("value_hash") or hashlib.sha256(values["value"].encode("utf-8")).hexdigest()
+        with db_connection(self.db_path) as conn:
+            conn.execute(
+                f"INSERT OR IGNORE INTO external_ids ({', '.join(fields)}) VALUES ({', '.join(':' + f for f in fields)})",
+                values,
+            )
+
+    def list_external_ids_for_trace(self, trace_id: str) -> list[dict[str, Any]]:
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM external_ids WHERE trace_id = ? ORDER BY source, key, value",
+                (trace_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def find_external_ids(self, *, source: str | None = None, key: str | None = None, value: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        clauses = []
+        values: list[Any] = []
+        if source:
+            clauses.append("source = ?")
+            values.append(source)
+        if key:
+            clauses.append("key = ?")
+            values.append(key)
+        if value:
+            clauses.append("value = ?")
+            values.append(value)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        values.append(limit)
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                f"SELECT * FROM external_ids {where} ORDER BY created_at DESC LIMIT ?",
+                values,
+            ).fetchall()
+        return [dict(row) for row in rows]
