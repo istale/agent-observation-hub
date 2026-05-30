@@ -10,7 +10,7 @@ Steps:
 2. Send a non-stream request to the Gateway:
 
    ```sh
-   curl -i http://127.0.0.1:8080/v1/chat/completions \
+   curl -i http://127.0.0.1:43180/v1/chat/completions \
      -H 'content-type: application/json' \
      -H 'X-Trace-Id: trace_accept_non_stream' \
      -H 'X-Run-Id: run_accept_non_stream' \
@@ -39,7 +39,7 @@ Steps:
 1. Send a streaming request:
 
    ```sh
-   curl -N -i http://127.0.0.1:8080/v1/chat/completions \
+   curl -N -i http://127.0.0.1:43180/v1/chat/completions \
      -H 'content-type: application/json' \
      -H 'X-Trace-Id: trace_accept_stream' \
      -H 'X-Run-Id: run_accept_stream' \
@@ -141,4 +141,3 @@ Expected:
 - Metadata appears in `trace_runs` and `llm_calls`.
 - Phase 2 adds `/api/traces/{trace_id}/correlations`.
 - UI trace detail shows a correlation panel.
-

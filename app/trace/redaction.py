@@ -4,7 +4,7 @@ from typing import Any
 
 
 REDACTED = "[REDACTED]"
-SENSITIVE_FIELD_RE = re.compile(r"(authorization|password|passwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key|key)$", re.I)
+SENSITIVE_FIELD_RE = re.compile(r"(authorization|cookie|set-cookie|password|passwd|token|secret|api[_-]?key|access[_-]?key|private[_-]?key|key)$", re.I)
 EMAIL_RE = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.I)
 BEARER_RE = re.compile(r"Bearer\s+[A-Za-z0-9._~+/=-]+", re.I)
 API_KEY_RE = re.compile(r"\b(?:sk|pk|rk|ak)-[A-Za-z0-9_-]{8,}\b")

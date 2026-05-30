@@ -36,10 +36,10 @@ export AOH_DATABASE_PATH=data/hub.sqlite3
 Point OpenClaw or Hermes to this gateway as the OpenAI base URL:
 
 ```text
-http://127.0.0.1:8080/v1
+http://127.0.0.1:43180/v1
 ```
 
-The handoff target topology uses port `43180` for the gateway:
+Canonical local topology:
 
 ```text
 OpenClaw / Hermes
@@ -48,10 +48,10 @@ OpenClaw / Hermes
   -> Model endpoint
 ```
 
-The current local Hermes validation used `8080`. To run the gateway on the handoff port instead:
+Earlier local Hermes validation used `8080`. Keep that only as a temporary compatibility override:
 
 ```sh
-PORT=43180 scripts/dev.sh
+PORT=8080 scripts/dev.sh
 ```
 
 Point this gateway upstream to LiteLLM:
@@ -67,12 +67,12 @@ scripts/init_db.sh
 scripts/dev.sh
 ```
 
-Open the UI at `http://127.0.0.1:8080/`.
+Open the UI at `http://127.0.0.1:43180/`.
 
 ## Curl Non-Stream
 
 ```sh
-curl http://127.0.0.1:8080/v1/chat/completions \
+curl http://127.0.0.1:43180/v1/chat/completions \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer test-key' \
   -H 'X-Agent-Id: openclaw' \
@@ -82,7 +82,7 @@ curl http://127.0.0.1:8080/v1/chat/completions \
 ## Curl Stream
 
 ```sh
-curl -N http://127.0.0.1:8080/v1/chat/completions \
+curl -N http://127.0.0.1:43180/v1/chat/completions \
   -H 'content-type: application/json' \
   -H 'authorization: Bearer test-key' \
   -d '{"model":"gpt-4o-mini","stream":true,"messages":[{"role":"user","content":"hello"}]}'

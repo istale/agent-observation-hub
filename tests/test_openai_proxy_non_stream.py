@@ -31,3 +31,6 @@ def test_non_stream_proxy_records_and_returns_upstream_response(app_client):
     calls = app_client.get("/api/traces/trace_proxy/llm-calls").json()["llm_calls"]
     assert calls[0]["status"] == "ok"
     assert calls[0]["total_tokens"] == 5
+    run = app_client.get("/api/runs/run_proxy").json()["run"]
+    assert run["status"] == "ok"
+    assert run["ended_at"]

@@ -25,3 +25,24 @@ def test_trace_api_returns_persisted_trace_and_redacted_raw(app_client, temp_dat
     assert trace.json()["run"]["trace_id"] == "trace_api"
     assert raw.status_code == 200
     assert "a@example.com" not in str(raw.json())
+
+
+def test_raw_api_denies_raw_view_when_disabled(app_client, temp_data_dir):
+    store = RawStore.from_env()
+    ref = store.write_json("trace_secret", "payload.json", {"authorization": "Bearer secret"})
+
+    response = app_client.get(f"/api/raw/{ref}?raw=true")
+
+    assert response.status_code == 200
+    assert "secret" not in str(response.json())
+
+
+def test_raw_store_blocks_path_traversal(temp_data_dir):
+    store = RawStore.from_env()
+
+    try:
+        store.read("../../../../etc/passwd")
+    except ValueError as exc:
+        assert "escapes raw archive" in str(exc)
+    else:
+        raise AssertionError("path traversal should be blocked")

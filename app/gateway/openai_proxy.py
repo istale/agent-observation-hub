@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from app.config import get_settings
 from app.gateway.forwarding import downstream_response_headers, upstream_request_headers
 from app.gateway.request_context import parse_request_context, response_trace_headers
-from app.gateway.streaming_capture import chunk_record
+from app.gateway.streaming_capture import chunk_record, usage_from_record
 from app.storage.repositories import Repository
 from app.trace.events import utc_now_iso
 from app.trace.ids import new_event_id
@@ -76,7 +76,15 @@ def _finish_call(repo: Repository, ctx: dict[str, Any], started: float, *, statu
     if error:
         update["error_type"] = type(error).__name__
         update["error_message"] = str(error)
+    elif status == "error" and http_status is not None:
+        update["error_type"] = "HTTPError"
+        update["error_message"] = f"upstream returned HTTP {http_status}"
     repo.update_llm_call(str(ctx["llm_call_id"]), {k: v for k, v in update.items() if v is not None})
+    repo.update_run(str(ctx["run_id"]), {
+        "ended_at": ended_at,
+        "status": status,
+        "failure_type": type(error).__name__ if error else ("http_error" if status == "error" else None),
+    })
     repo.insert_event({
         "event_id": new_event_id(),
         "trace_id": ctx["trace_id"],
@@ -113,6 +121,7 @@ async def chat_completions(request: Request) -> Response:
     if body.get("stream"):
         chunks_ref = f"{store._trace_dir(str(ctx['trace_id'])).relative_to(store.root).as_posix()}/llm_{ctx['llm_call_id']}_chunks.jsonl"
         client = httpx.AsyncClient(timeout=timeout)
+        stream_usage: dict[str, int | None] = {}
         try:
             upstream_request = client.build_request("POST", upstream_url, json=body, headers=upstream_request_headers(request.headers))
             upstream = await client.send(upstream_request, stream=True)
@@ -125,9 +134,13 @@ async def chat_completions(request: Request) -> Response:
             try:
                 async for part in upstream.aiter_bytes():
                     if part:
-                        store.append_jsonl(str(ctx["trace_id"]), f"llm_{ctx['llm_call_id']}_chunks.jsonl", chunk_record(part))
+                        record = chunk_record(part)
+                        usage = usage_from_record(record)
+                        if usage:
+                            stream_usage.update(usage)
+                        store.append_jsonl(str(ctx["trace_id"]), f"llm_{ctx['llm_call_id']}_chunks.jsonl", record)
                     yield part
-                _finish_call(repo, ctx, started, status="ok" if upstream.status_code < 400 else "error", http_status=upstream.status_code, chunks_ref=chunks_ref)
+                _finish_call(repo, ctx, started, status="ok" if upstream.status_code < 400 else "error", http_status=upstream.status_code, chunks_ref=chunks_ref, usage=stream_usage or None)
             except Exception as exc:
                 _finish_call(repo, ctx, started, status="error", http_status=upstream.status_code, chunks_ref=chunks_ref, error=exc)
                 raise

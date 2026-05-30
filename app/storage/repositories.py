@@ -79,6 +79,15 @@ class Repository:
         with db_connection(self.db_path) as conn:
             conn.execute(f"UPDATE llm_calls SET {assignments} WHERE llm_call_id=:llm_call_id", values)
 
+    def update_run(self, run_id: str, data: dict[str, Any]) -> None:
+        values = {key: value for key, value in data.items() if value is not None}
+        if not values:
+            return
+        assignments = ", ".join(f"{key}=:{key}" for key in values)
+        values["run_id"] = run_id
+        with db_connection(self.db_path) as conn:
+            conn.execute(f"UPDATE trace_runs SET {assignments} WHERE run_id=:run_id", values)
+
     def list_runs(self, limit: int = 50) -> list[dict[str, Any]]:
         with db_connection(self.db_path) as conn:
             rows = conn.execute("SELECT * FROM trace_runs ORDER BY started_at DESC LIMIT ?", (limit,)).fetchall()

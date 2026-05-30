@@ -4,7 +4,11 @@ import respx
 
 @respx.mock
 def test_stream_proxy_forwards_sse_and_records_chunks(app_client):
-    body = b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\ndata: [DONE]\n\n'
+    body = (
+        b'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n'
+        b'data: {"choices":[{"delta":{}}],"usage":{"prompt_tokens":4,"completion_tokens":2,"total_tokens":6}}\n\n'
+        b'data: [DONE]\n\n'
+    )
     respx.post("http://upstream.test/v1/chat/completions").mock(
         return_value=httpx.Response(200, content=body, headers={"content-type": "text/event-stream"})
     )
@@ -20,3 +24,6 @@ def test_stream_proxy_forwards_sse_and_records_chunks(app_client):
     calls = app_client.get("/api/traces/trace_stream/llm-calls").json()["llm_calls"]
     assert calls[0]["status"] == "ok"
     assert calls[0]["response_chunks_ref"]
+    assert calls[0]["input_tokens"] == 4
+    assert calls[0]["output_tokens"] == 2
+    assert calls[0]["total_tokens"] == 6
