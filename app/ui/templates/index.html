@@ -14,7 +14,7 @@
       <tbody>
       {% for run in runs %}
         <tr>
-          <td>{{ run.started_at }}</td>
+          <td>{{ run.started_at | taipei_time }}</td>
           <td><a href="/traces/{{ run.trace_id }}">{{ run.trace_id }}</a></td>
           <td>{{ run.run_id }}</td>
           <td>{{ run.status }}</td>

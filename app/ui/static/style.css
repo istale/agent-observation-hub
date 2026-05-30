@@ -41,3 +41,21 @@ dl {
 dt {
   font-weight: 700;
 }
+
+pre {
+  background: white;
+  border: 1px solid #dce1e4;
+  border-radius: 6px;
+  padding: 14px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+pre.readable {
+  line-height: 1.55;
+}
+
+.muted {
+  color: #66737d;
+}

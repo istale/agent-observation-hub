@@ -14,9 +14,11 @@ from app.storage.db import init_db
 from app.storage.repositories import Repository
 from app.trace.raw_store import RawStore
 from app.trace.redaction import redact
+from app.ui.formatters import llm_response_view, taipei_time
 
 
 templates = Jinja2Templates(directory="app/ui/templates")
+templates.env.filters["taipei_time"] = taipei_time
 
 
 def create_app() -> FastAPI:
@@ -51,12 +53,20 @@ def create_app() -> FastAPI:
         repo = Repository.from_env()
         call = repo.get_llm_call(llm_call_id)
         payloads = {}
+        response_view = {"assistant_text": "", "reasoning_text": ""}
         if call:
             store = RawStore.from_env()
             for key in ("request_ref", "response_ref"):
                 if call.get(key):
                     payloads[key.removesuffix("_ref")] = redact(store.read(call[key]))
-        return templates.TemplateResponse(request, "llm_call.html", {"call": call, "payloads": payloads})
+            if call.get("response_chunks_ref"):
+                payloads["chunks"] = redact(store.read_jsonl(call["response_chunks_ref"]))
+            response_view = llm_response_view(payloads.get("response"), payloads.get("chunks"))
+        return templates.TemplateResponse(
+            request,
+            "llm_call.html",
+            {"call": call, "payloads": payloads, "response_view": response_view},
+        )
 
     return app
 

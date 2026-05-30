@@ -15,7 +15,7 @@
       <tbody>
       {% for event in events %}
         <tr>
-          <td>{{ event.timestamp }}</td>
+          <td>{{ event.timestamp | taipei_time }}</td>
           <td>{{ event.event_type }}</td>
           <td>{{ event.source }}</td>
           <td>{{ event.status }}</td>
