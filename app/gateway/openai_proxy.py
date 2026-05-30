@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from app.config import get_settings
-from app.gateway.correlations import inbound_external_ids, persist_external_ids, upstream_external_ids
+from app.gateway.correlations import inbound_external_ids, ingress_route_external_ids, persist_external_ids, upstream_external_ids
 from app.gateway.forwarding import downstream_response_headers, upstream_request_headers
 from app.gateway.request_context import parse_request_context, response_trace_headers
 from app.gateway.streaming_capture import chunk_record, usage_from_record
@@ -118,6 +118,7 @@ async def chat_completions(request: Request) -> Response:
     request_ref = store.write_json(str(ctx["trace_id"]), f"llm_{ctx['llm_call_id']}_request.json", {"headers": dict(request.headers), "body": body})
     _record_start(repo, store, ctx, body, request_ref)
     persist_external_ids(repo, inbound_external_ids(request.headers, ctx))
+    persist_external_ids(repo, ingress_route_external_ids(ctx))
 
     upstream_url = f"{settings.upstream_openai_base_url}/v1/chat/completions"
     timeout = httpx.Timeout(settings.request_timeout, read=settings.request_timeout)

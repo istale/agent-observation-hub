@@ -26,10 +26,11 @@ class Repository:
         fields = [
             "run_id", "trace_id", "tenant_id", "user_id", "user_hash", "agent_id", "session_id",
             "channel", "channel_id", "conversation_id", "trigger_type", "started_at", "ended_at",
-            "status", "input_summary", "output_summary", "failure_type",
+            "status", "input_summary", "output_summary", "failure_type", "identity_source",
         ]
         values = {field: data.get(field) for field in fields}
         values["status"] = values.get("status") or "running"
+        values["identity_source"] = values.get("identity_source") or "unknown"
         cols = ", ".join(fields)
         placeholders = ", ".join(f":{field}" for field in fields)
         updates = ", ".join(f"{field}=excluded.{field}" for field in fields if field != "run_id")
@@ -59,12 +60,13 @@ class Repository:
             "session_id", "channel", "conversation_id", "provider", "upstream_base_url", "model",
             "endpoint", "is_stream", "started_at", "ended_at", "latency_ms", "status", "http_status",
             "error_type", "error_message", "input_tokens", "output_tokens", "total_tokens",
-            "request_ref", "response_ref", "response_chunks_ref", "redaction_level",
+            "request_ref", "response_ref", "response_chunks_ref", "redaction_level", "identity_source",
         ]
         values = {field: data.get(field) for field in fields}
         values["is_stream"] = 1 if values.get("is_stream") else 0
         values["status"] = values.get("status") or "running"
         values["redaction_level"] = values.get("redaction_level") or "raw_local"
+        values["identity_source"] = values.get("identity_source") or "unknown"
         with db_connection(self.db_path) as conn:
             conn.execute(
                 f"INSERT INTO llm_calls ({', '.join(fields)}) VALUES ({', '.join(':' + f for f in fields)})",
@@ -158,3 +160,50 @@ class Repository:
                 values,
             ).fetchall()
         return [dict(row) for row in rows]
+
+    def insert_ingress_route(self, data: dict[str, Any]) -> dict[str, Any]:
+        fields = [
+            "listen_host", "listen_port", "path_prefix", "tenant_id", "user_id", "user_hash",
+            "agent_id", "session_id", "channel", "channel_id", "conversation_id", "source",
+            "note", "enabled",
+        ]
+        values = {field: data.get(field) for field in fields}
+        values["source"] = values.get("source") or "ingress_route"
+        values["enabled"] = 1 if values.get("enabled") is None else (1 if values.get("enabled") else 0)
+        with db_connection(self.db_path) as conn:
+            conn.execute(
+                f"INSERT OR REPLACE INTO ingress_routes ({', '.join(fields)}) VALUES ({', '.join(':' + f for f in fields)})",
+                values,
+            )
+            route_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            return dict(conn.execute("SELECT * FROM ingress_routes WHERE id = ?", (route_id,)).fetchone())
+
+    def list_ingress_routes(self, *, enabled: int | None = None) -> list[dict[str, Any]]:
+        where = ""
+        values: list[Any] = []
+        if enabled is not None:
+            where = "WHERE enabled = ?"
+            values.append(enabled)
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(f"SELECT * FROM ingress_routes {where} ORDER BY listen_port, path_prefix", values).fetchall()
+        return [dict(row) for row in rows]
+
+    def find_ingress_route(self, *, listen_host: str | None, listen_port: int | None, path: str) -> dict[str, Any] | None:
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM ingress_routes
+                WHERE enabled = 1
+                  AND (listen_host IS NULL OR listen_host = ?)
+                  AND (listen_port IS NULL OR listen_port = ?)
+                ORDER BY LENGTH(COALESCE(path_prefix, '')) DESC
+                """,
+                (listen_host, listen_port),
+            ).fetchall()
+        for row in rows:
+            route = dict(row)
+            prefix = route.get("path_prefix")
+            if not prefix or path.startswith(prefix):
+                return route
+        return None

@@ -45,6 +45,18 @@ def inbound_external_ids(headers: Headers, ctx: dict[str, Any]) -> list[dict[str
     return records
 
 
+def ingress_route_external_ids(ctx: dict[str, Any]) -> list[dict[str, Any]]:
+    route_id = ctx.get("ingress_route_id")
+    if not route_id:
+        return []
+    records = [_record(ctx, "ingress_route", "route_id", str(route_id))]
+    for key in ("tenant_id", "user_hash", "agent_id", "channel", "channel_id", "conversation_id"):
+        value = ctx.get(key)
+        if value and value != "unknown":
+            records.append(_record(ctx, "ingress_route", key, str(value)))
+    return records
+
+
 def upstream_external_ids(headers: Headers | dict[str, str], ctx: dict[str, Any]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for header, (source, key) in UPSTREAM_HEADERS.items():

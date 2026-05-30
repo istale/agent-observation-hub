@@ -93,6 +93,22 @@ listen_host | listen_port | path_prefix | tenant_id | user_hash | agent_id | cha
 127.0.0.1   | 43182       | /v1         | local     | bob       | hermes   | discord | Bob Hermes
 ```
 
+Current confirmed first route:
+
+```text
+127.0.0.1:43180 /v1 -> tenant_id=local, user_hash=istale, agent_id=hermes, channel=discord
+```
+
+Confirmed deployment assumptions:
+
+- One user/agent per port.
+- All ports share `data/hub.sqlite3`.
+- Use `user_hash`, not raw `user_id`.
+- `channel=discord` is sufficient for the first route; no `channel_id` is required.
+- Do not map `session_id` or `conversation_id` from port. Those should come from future Hermes/OpenClaw headers.
+- Route management is CLI-only in the first implementation.
+- Path prefix is `/v1` for all current routes.
+
 ## Context Fields
 
 Current request context fields:

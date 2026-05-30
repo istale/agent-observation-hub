@@ -24,6 +24,14 @@ def init_db(path: Path | None = None) -> None:
     with connect(path) as conn:
         for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
             conn.executescript(migration.read_text(encoding="utf-8"))
+        _ensure_column(conn, "trace_runs", "identity_source", "TEXT NOT NULL DEFAULT 'unknown'")
+        _ensure_column(conn, "llm_calls", "identity_source", "TEXT NOT NULL DEFAULT 'unknown'")
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    columns = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
 @contextmanager
