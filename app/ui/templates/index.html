@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Agent Observation Hub</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <h1>Agent Observation Hub</h1>
+    <h2>Recent Trace Runs</h2>
+    <table>
+      <thead><tr><th>Started</th><th>Trace</th><th>Run</th><th>Status</th><th>Agent</th><th>Channel</th></tr></thead>
+      <tbody>
+      {% for run in runs %}
+        <tr>
+          <td>{{ run.started_at }}</td>
+          <td><a href="/traces/{{ run.trace_id }}">{{ run.trace_id }}</a></td>
+          <td>{{ run.run_id }}</td>
+          <td>{{ run.status }}</td>
+          <td>{{ run.agent_id }}</td>
+          <td>{{ run.channel }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LLM Call</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <p><a href="/">Home</a></p>
+    {% if call %}
+      <h1>{{ call.llm_call_id }}</h1>
+      <dl>
+        <dt>Model</dt><dd>{{ call.model }}</dd>
+        <dt>Status</dt><dd>{{ call.status }}</dd>
+        <dt>Latency</dt><dd>{{ call.latency_ms }}ms</dd>
+        <dt>Usage</dt><dd>{{ call.input_tokens }} / {{ call.output_tokens }} / {{ call.total_tokens }}</dd>
+        <dt>Request</dt><dd><a href="/api/raw/{{ call.request_ref }}">{{ call.request_ref }}</a></dd>
+        <dt>Response</dt><dd>{% if call.response_ref %}<a href="/api/raw/{{ call.response_ref }}">{{ call.response_ref }}</a>{% endif %}</dd>
+        <dt>Chunks</dt><dd>{% if call.response_chunks_ref %}<a href="/api/raw/{{ call.response_chunks_ref }}">{{ call.response_chunks_ref }}</a>{% endif %}</dd>
+      </dl>
+      <h2>Redacted Request</h2>
+      <pre>{{ payloads.request | tojson(indent=2) }}</pre>
+      <h2>Redacted Response</h2>
+      <pre>{{ payloads.response | tojson(indent=2) }}</pre>
+    {% else %}
+      <h1>LLM call not found</h1>
+    {% endif %}
+  </main>
+</body>
+</html>

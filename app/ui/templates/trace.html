@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Trace {{ trace_id }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main>
+    <p><a href="/">Home</a></p>
+    <h1>Trace {{ trace_id }}</h1>
+    <h2>Timeline</h2>
+    <table>
+      <thead><tr><th>Timestamp</th><th>Event Type</th><th>Source</th><th>Status</th><th>Severity</th><th>Payload</th></tr></thead>
+      <tbody>
+      {% for event in events %}
+        <tr>
+          <td>{{ event.timestamp }}</td>
+          <td>{{ event.event_type }}</td>
+          <td>{{ event.source }}</td>
+          <td>{{ event.status }}</td>
+          <td>{{ event.severity }}</td>
+          <td>{% if event.payload_ref %}<a href="/api/raw/{{ event.payload_ref }}">{{ event.payload_ref }}</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <h2>LLM Calls</h2>
+    <ul>
+      {% for call in llm_calls %}
+        <li><a href="/llm-calls/{{ call.llm_call_id }}">{{ call.llm_call_id }}</a> {{ call.model }} {{ call.status }} {{ call.latency_ms }}ms</li>
+      {% endfor %}
+    </ul>
+  </main>
+</body>
+</html>
