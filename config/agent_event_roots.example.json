@@ -1,0 +1,18 @@
+{
+  "hermes_roots": [
+    {
+      "user_hash": "istale",
+      "path": "/Users/istale/.hermes"
+    },
+    {
+      "user_hash": "alice",
+      "path": "/Users/alice/.hermes"
+    }
+  ],
+  "openclaw_roots": [
+    {
+      "user_hash": "istale",
+      "path": "/Users/istale/.openclaw"
+    }
+  ]
+}

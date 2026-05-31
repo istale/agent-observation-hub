@@ -129,6 +129,28 @@ Subject query APIs list observed users, user-specific trace IDs, and user agent/
 
 `/api/subjects/users/{user_hash}/analysis-bundle` packages recent traces for one user into a summary-first bundle for local LLM analysis. It omits payload bodies by default and can include them with `include_payloads=true`. See [docs/user_analysis_bundle_api.md](docs/user_analysis_bundle_api.md).
 
+## Agent Event Importers
+
+Agent-level Hermes/OpenClaw logs can be imported into trace timelines:
+
+```sh
+python -m app.importers.agent_events.cli \
+  --source hermes \
+  --path /Users/istale/.hermes/logs/hermes.log \
+  --user-hash istale
+```
+
+Root discovery can use a per-user config:
+
+```sh
+python -m app.importers.agent_events.cli \
+  --source hermes \
+  --roots-config config/agent_event_roots.json \
+  --user-hash istale
+```
+
+See [docs/agent_event_importers_spec.md](docs/agent_event_importers_spec.md) and [config/agent_event_roots.example.json](config/agent_event_roots.example.json).
+
 ## Security Notes
 
 This is a local observation tool. Use `AOH_PAYLOAD_MODE=raw` only when every client that can reach the hub is trusted. Raw mode can expose Authorization headers, cookies, API keys, private prompts, user messages, agent memory, tool inputs, tool outputs, and file contents to the UI and `/api/raw/{payload_ref}`. Use `AOH_PAYLOAD_MODE=redacted` before sharing the hub, opening it to a network, or enabling cloud/exporter integrations. The API still protects against path traversal for raw refs, and the archive directory should always be treated as sensitive local data.

@@ -1,27 +1,24 @@
-from app.importers.openclaw_importer import ingest_line
-from app.storage.repositories import Repository
+from pathlib import Path
+
+from app.importers.agent_events.cli import run_import
 
 
 def main() -> None:
     import argparse
-    import time
-    from pathlib import Path
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", required=True)
     parser.add_argument("--follow", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--user-hash")
     args = parser.parse_args()
-    repo = Repository.from_env()
-    path = Path(args.path)
-    with path.open(encoding="utf-8") as fh:
-        while True:
-            line = fh.readline()
-            if line:
-                ingest_line(repo, line, source="hermes")
-            elif args.follow:
-                time.sleep(0.5)
-            else:
-                break
+    run_import(
+        source="hermes",
+        paths=[Path(args.path)],
+        follow=args.follow,
+        dry_run=args.dry_run,
+        user_hash=args.user_hash,
+    )
 
 
 if __name__ == "__main__":
