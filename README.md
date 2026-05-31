@@ -1,6 +1,8 @@
 # Agent Observation Hub
 
-Agent Observation Hub is a local-first OpenAI-compatible observation proxy. It sits between OpenClaw or Hermes Agent and a LiteLLM Proxy, captures LLM request and response data, and stores metadata in SQLite while archiving raw payloads on the local filesystem.
+Agent Observation Hub is a local-first OpenAI-compatible observation proxy. It sits between OpenClaw or Hermes Agent and any OpenAI-compatible upstream, captures LLM request and response data, and stores metadata in SQLite while archiving raw payloads on the local filesystem.
+
+LiteLLM is optional. AOH does not require, install, or import the LiteLLM Python package. If production policy bans LiteLLM, point AOH directly at an approved OpenAI-compatible provider.
 
 ## Architecture
 
@@ -27,8 +29,8 @@ pip install -e ".[dev]"
 
 ```sh
 cp .env.example .env
-export UPSTREAM_OPENAI_BASE_URL=http://127.0.0.1:4000
-export UPSTREAM_OPENAI_API_KEY=dummy
+export UPSTREAM_OPENAI_BASE_URL=https://api.minimax.io/v1
+export UPSTREAM_OPENAI_API_KEY=replace-me
 export AOH_DATA_DIR=data
 export AOH_DATABASE_PATH=data/hub.sqlite3
 ```
@@ -39,7 +41,15 @@ Point OpenClaw or Hermes to this gateway as the OpenAI base URL:
 http://127.0.0.1:43180/v1
 ```
 
-Canonical local topology:
+Direct provider topology:
+
+```text
+OpenClaw / Hermes
+  -> Agent Observation Gateway: http://127.0.0.1:43180/v1
+  -> OpenAI-compatible provider: https://api.minimax.io/v1
+```
+
+Optional LiteLLM topology:
 
 ```text
 OpenClaw / Hermes
@@ -54,7 +64,13 @@ Earlier local Hermes validation used `8080`. Keep that only as a temporary compa
 PORT=8080 scripts/dev.sh
 ```
 
-Point this gateway upstream to LiteLLM:
+Point this gateway upstream directly to a provider:
+
+```sh
+export UPSTREAM_OPENAI_BASE_URL=https://api.minimax.io/v1
+```
+
+Or optionally point this gateway upstream to LiteLLM:
 
 ```sh
 export UPSTREAM_OPENAI_BASE_URL=http://127.0.0.1:4000
