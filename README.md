@@ -104,6 +104,7 @@ curl -N http://127.0.0.1:43180/v1/chat/completions \
 - `GET /healthz`
 - `GET /api/traces`
 - `GET /api/traces/{trace_id}`
+- `GET /api/traces/{trace_id}/analysis-bundle`
 - `GET /api/traces/{trace_id}/events`
 - `GET /api/traces/{trace_id}/llm-calls`
 - `GET /api/runs`
@@ -117,6 +118,8 @@ Payload rendering is controlled by `AOH_PAYLOAD_MODE`:
 - `AOH_PAYLOAD_MODE=redacted`: UI pages and `/api/raw/{payload_ref}` return redacted payloads.
 
 Raw mode is intended for trusted local/company-internal debugging and local LLM agents that need complete payloads to analyze agent and model behavior. `ALLOW_RAW_VIEW` is deprecated and is no longer the primary payload access switch.
+
+`/api/traces/{trace_id}/analysis-bundle` packages run metadata, identity, timeline events, LLM call metadata, payloads, readable response text, correlations, and diagnostics for local LLM analysis. See [docs/analysis_bundle_api.md](docs/analysis_bundle_api.md).
 
 ## Security Notes
 

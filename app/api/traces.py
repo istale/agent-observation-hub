@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 
+from app.analysis_bundle import build_analysis_bundle
 from app.storage.repositories import Repository
 
 router = APIRouter()
@@ -17,6 +18,17 @@ def get_trace(trace_id: str) -> dict[str, object]:
     if not run:
         raise HTTPException(status_code=404, detail="trace not found")
     return {"run": run, "events": repo.list_events(trace_id), "llm_calls": repo.list_llm_calls_for_trace(trace_id)}
+
+
+@router.get("/api/traces/{trace_id}/analysis-bundle")
+def trace_analysis_bundle(trace_id: str) -> dict[str, object]:
+    try:
+        bundle = build_analysis_bundle(trace_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not bundle:
+        raise HTTPException(status_code=404, detail="trace not found")
+    return bundle
 
 
 @router.get("/api/traces/{trace_id}/events")
