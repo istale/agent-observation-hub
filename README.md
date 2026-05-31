@@ -109,6 +109,7 @@ curl -N http://127.0.0.1:43180/v1/chat/completions \
 - `GET /api/traces/{trace_id}/llm-calls`
 - `GET /api/subjects/users`
 - `GET /api/subjects/users/{user_hash}/traces`
+- `GET /api/subjects/users/{user_hash}/analysis-bundle`
 - `GET /api/subjects/users/{user_hash}/agents`
 - `GET /api/runs`
 - `GET /api/runs/{run_id}`
@@ -125,6 +126,8 @@ Raw mode is intended for trusted local/company-internal debugging and local LLM 
 `/api/traces/{trace_id}/analysis-bundle` packages run metadata, identity, timeline events, LLM call metadata, payloads, readable response text, correlations, and diagnostics for local LLM analysis. See [docs/analysis_bundle_api.md](docs/analysis_bundle_api.md).
 
 Subject query APIs list observed users, user-specific trace IDs, and user agent/channel combinations before choosing a trace for deep analysis. See [docs/subject_query_api.md](docs/subject_query_api.md).
+
+`/api/subjects/users/{user_hash}/analysis-bundle` packages recent traces for one user into a summary-first bundle for local LLM analysis. It omits payload bodies by default and can include them with `include_payloads=true`. See [docs/user_analysis_bundle_api.md](docs/user_analysis_bundle_api.md).
 
 ## Security Notes
 
