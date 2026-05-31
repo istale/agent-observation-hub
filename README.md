@@ -107,6 +107,9 @@ curl -N http://127.0.0.1:43180/v1/chat/completions \
 - `GET /api/traces/{trace_id}/analysis-bundle`
 - `GET /api/traces/{trace_id}/events`
 - `GET /api/traces/{trace_id}/llm-calls`
+- `GET /api/subjects/users`
+- `GET /api/subjects/users/{user_hash}/traces`
+- `GET /api/subjects/users/{user_hash}/agents`
 - `GET /api/runs`
 - `GET /api/runs/{run_id}`
 - `GET /api/llm-calls/{llm_call_id}`
@@ -120,6 +123,8 @@ Payload rendering is controlled by `AOH_PAYLOAD_MODE`:
 Raw mode is intended for trusted local/company-internal debugging and local LLM agents that need complete payloads to analyze agent and model behavior. `ALLOW_RAW_VIEW` is deprecated and is no longer the primary payload access switch.
 
 `/api/traces/{trace_id}/analysis-bundle` packages run metadata, identity, timeline events, LLM call metadata, payloads, readable response text, correlations, and diagnostics for local LLM analysis. See [docs/analysis_bundle_api.md](docs/analysis_bundle_api.md).
+
+Subject query APIs list observed users, user-specific trace IDs, and user agent/channel combinations before choosing a trace for deep analysis. See [docs/subject_query_api.md](docs/subject_query_api.md).
 
 ## Security Notes
 

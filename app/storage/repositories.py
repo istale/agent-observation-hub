@@ -107,6 +107,111 @@ class Repository:
     def list_traces(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.list_runs(limit)
 
+    def list_observed_users(self) -> list[dict[str, Any]]:
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                  user_hash,
+                  COUNT(*) AS trace_count,
+                  COUNT(DISTINCT agent_id) AS agent_count,
+                  MIN(started_at) AS first_seen,
+                  MAX(started_at) AS last_seen
+                FROM trace_runs
+                WHERE user_hash IS NOT NULL
+                GROUP BY user_hash
+                ORDER BY last_seen DESC
+                """
+            ).fetchall()
+            users = []
+            for row in rows:
+                item = dict(row)
+                channels = conn.execute(
+                    """
+                    SELECT DISTINCT channel
+                    FROM trace_runs
+                    WHERE user_hash = ?
+                      AND channel IS NOT NULL
+                    ORDER BY channel
+                    """,
+                    (item["user_hash"],),
+                ).fetchall()
+                item["channels"] = [channel_row["channel"] for channel_row in channels]
+                users.append(item)
+        return users
+
+    def list_user_traces(
+        self,
+        user_hash: str,
+        *,
+        limit: int = 50,
+        days: int | None = None,
+        agent_id: str | None = None,
+        channel: str | None = None,
+        status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        clauses = ["r.user_hash = ?"]
+        values: list[Any] = [user_hash]
+        if agent_id:
+            clauses.append("r.agent_id = ?")
+            values.append(agent_id)
+        if channel:
+            clauses.append("r.channel = ?")
+            values.append(channel)
+        if status:
+            clauses.append("r.status = ?")
+            values.append(status)
+        if days is not None:
+            clauses.append("r.started_at >= datetime('now', ?)")
+            values.append(f"-{days} days")
+        values.append(limit)
+        where = " AND ".join(clauses)
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT
+                  r.trace_id,
+                  r.run_id,
+                  r.tenant_id,
+                  r.user_hash,
+                  r.agent_id,
+                  r.channel,
+                  r.status,
+                  r.started_at,
+                  r.ended_at,
+                  r.identity_source,
+                  COUNT(l.llm_call_id) AS llm_call_count,
+                  COALESCE(SUM(l.total_tokens), 0) AS total_tokens,
+                  MAX(l.latency_ms) AS max_latency_ms
+                FROM trace_runs r
+                LEFT JOIN llm_calls l ON l.trace_id = r.trace_id
+                WHERE {where}
+                GROUP BY r.trace_id, r.run_id
+                ORDER BY r.started_at DESC
+                LIMIT ?
+                """,
+                values,
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_user_agents(self, user_hash: str) -> list[dict[str, Any]]:
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                """
+                SELECT
+                  agent_id,
+                  channel,
+                  COUNT(*) AS trace_count,
+                  MAX(started_at) AS last_seen
+                FROM trace_runs
+                WHERE user_hash = ?
+                GROUP BY agent_id, channel
+                ORDER BY last_seen DESC
+                """,
+                (user_hash,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def list_events(self, trace_id: str) -> list[dict[str, Any]]:
         with db_connection(self.db_path) as conn:
             rows = conn.execute("SELECT * FROM trace_events WHERE trace_id = ? ORDER BY timestamp ASC", (trace_id,)).fetchall()

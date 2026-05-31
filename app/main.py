@@ -8,6 +8,7 @@ from app.api.health import router as health_router
 from app.api.llm_calls import router as llm_calls_router
 from app.api.raw import router as raw_router
 from app.api.runs import router as runs_router
+from app.api.subjects import router as subjects_router
 from app.api.traces import router as traces_router
 from app.gateway.openai_proxy import router as openai_router
 from app.logging_config import configure_logging
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(openai_router)
     app.include_router(traces_router)
     app.include_router(runs_router)
+    app.include_router(subjects_router)
     app.include_router(llm_calls_router)
     app.include_router(correlations_router)
     app.include_router(raw_router)
