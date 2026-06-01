@@ -21,14 +21,15 @@ The priority is to capture enough local evidence to analyze agent and model beha
 
 ### LiteLLM
 
-LiteLLM should remain the model gateway and provider adapter. It is responsible for unified OpenAI-compatible routing to model providers and local endpoints.
+LiteLLM is an optional model gateway and provider adapter. Agent Observation Hub's required upstream contract is OpenAI-compatible HTTP, so production deployments can point AOH directly at an approved provider when LiteLLM is not installed, not approved, or banned.
 
 Project strategy:
 
 - Do not reimplement provider adapters in Agent Observation Hub.
-- Place Hub in front of LiteLLM.
-- Capture Hub `llm_call_id` and later map it to LiteLLM call IDs.
-- Use LiteLLM callbacks/logging as optional future inputs.
+- Place Hub in front of any approved OpenAI-compatible upstream.
+- Use LiteLLM only when its gateway/routing behavior is allowed and useful.
+- Capture Hub `llm_call_id` and map it to LiteLLM call IDs only when LiteLLM response headers are present.
+- Use LiteLLM callbacks/logging as optional future inputs, never as required runtime dependencies.
 
 ## Observability Backend Layer
 
@@ -68,7 +69,7 @@ Helicone combines LLM gateway and observability patterns.
 Project strategy:
 
 - Use as a design reference.
-- Do not replace LiteLLM in the MVP.
+- Do not make Helicone or LiteLLM required in the MVP.
 
 ## Trace Standards and Instrumentation
 
@@ -114,4 +115,3 @@ Future local evaluation should support:
 - tool reliability evaluation
 - context quality evaluation
 - user correction/follow-up rate analysis
-
