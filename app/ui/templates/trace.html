@@ -200,6 +200,18 @@
           <span class="round-label">System Prompt 組裝</span>
           <span class="round-meta muted small">每一段 component 的來源與字數</span>
         </div>
+      {% elif round.kind == 'compaction_check' %}
+        <div class="round-header round-compaction-check" title="Pi 在每次 model 回應後檢查是否需要壓縮上下文。即使沒觸發，也會記錄這次的 token 使用 vs 觸發門檻——讓你知道『離壓縮還有多遠』。">
+          <span class="round-icon">📏</span>
+          <span class="round-label">Compaction Check</span>
+          <span class="round-meta muted small">檢查 context 是否快滿了（沒滿就略過、不壓縮）</span>
+        </div>
+      {% elif round.kind == 'compaction' %}
+        <div class="round-header round-compaction" title="Context 接近滿了 / 或使用者手動觸發。Pi 把舊訊息壓縮成 summary 塞進歷史，後續 model 就看不到原訊息——這是 model 突然『失憶』的主要原因。">
+          <span class="round-icon">📦</span>
+          <span class="round-label">Context Compaction</span>
+          <span class="round-meta muted small">壓縮舊訊息成 summary（model 看不到原訊息）</span>
+        </div>
       {% endif %}
       {% for ev in round.events %}
         <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
@@ -209,7 +221,58 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'system_prompt_assembled' %}
+          {% if ev.view.kind == 'compaction_check' %}
+            <p class="muted">
+              <span title="是否觸發壓縮：true = context 超過門檻、會立即進入 Context Compaction round；false = 還沒滿、本次不壓縮">觸發壓縮</span>:
+              {% if ev.view.trigger %}<span class="tool-err">是</span>{% else %}<span class="tool-ok">否</span>{% endif %} ·
+              <span title="目前 context 使用 token 數 (Pi 估算)">使用</span>: {{ ev.view.context_tokens }} ·
+              <span title="model 的 context window 上限">上限</span>: {{ ev.view.context_window }} ·
+              <span title="觸發壓縮的門檻 = window - reserve_tokens">門檻</span>: {{ ev.view.threshold }} ·
+              <span title="margin = threshold - context_tokens；負值代表已超過、會觸發壓縮">餘量</span>: {{ ev.view.margin }}
+            </p>
+            <p class="muted small" title="壓縮設定是否啟用（settings.json compaction.enabled）">壓縮功能: {% if ev.view.enabled %}enabled{% else %}disabled{% endif %} · reserve_tokens: {{ ev.view.reserve_tokens }}</p>
+            <div class="compaction-bar" title="當前 context 使用比例 vs 觸發門檻">
+              <div class="compaction-bar-track">
+                <div class="compaction-bar-used" style="width: {{ ev.view.pct_used }}%" title="已使用 {{ ev.view.pct_used }}%"></div>
+                <div class="compaction-bar-marker" style="left: {{ ev.view.pct_threshold }}%" title="壓縮門檻在 {{ ev.view.pct_threshold }}%"></div>
+              </div>
+              <div class="muted small">{{ ev.view.pct_used }}% used | 壓縮門檻 {{ ev.view.pct_threshold }}%</div>
+            </div>
+          {% elif ev.view.kind == 'compaction_started' %}
+            <p class="muted">
+              <span title="壓縮的觸發原因">觸發原因</span>: <code>{{ ev.view.reason }}</code> ·
+              <span title="壓縮的種類：auto = 自動 (overflow/threshold)，manual = 使用者呼叫 .compact()">種類</span>: <code>{{ ev.view.compaction_kind }}</code>
+              {% if ev.view.custom_instructions %} · custom: <code>{{ ev.view.custom_instructions }}</code>{% endif %}
+            </p>
+          {% elif ev.view.kind == 'compaction_prepared' %}
+            <p class="muted">
+              <span title="Pi 已經決定要壓縮 N 個 message，並從 first_kept_entry_id 開始保留">將壓縮</span>: <strong>{{ ev.view.messages_to_summarize_count }}</strong> 個訊息 ·
+              <span title="壓縮前估算的 token 數">壓縮前 tokens</span>: {{ ev.view.tokens_before }} ·
+              <span title="是否從一個 turn 中間切開壓縮（保留 turn 前綴）">split_turn</span>: {{ ev.view.is_split_turn }} ·
+              <span title="保留的 entry 第一個 id">首個保留</span>: <code>{{ ev.view.first_kept_entry_id }}</code>
+            </p>
+            {% if ev.view.turn_prefix_messages_count %}<p class="muted small">turn_prefix messages 同時被獨立壓縮成「Turn Context」: {{ ev.view.turn_prefix_messages_count }} 筆</p>{% endif %}
+            {% if ev.view.previous_summary_chars %}<p class="muted small">這次壓縮會包含前一個 summary ({{ ev.view.previous_summary_chars }} chars)，達成 iterative 更新</p>{% endif %}
+            {% if ev.view.file_ops_count %}<p class="muted small">壓縮歷史中涉及 {{ ev.view.file_ops_count }} 個檔案操作（會在 summary 中保留路徑）</p>{% endif %}
+          {% elif ev.view.kind == 'compaction_completed' %}
+            <p class="muted">
+              <span title="壓縮完成">✅ 壓縮完成</span> ·
+              <span title="壓縮前 token 數，這些 token 對應的訊息已被替換成 summary">壓縮前</span>: {{ ev.view.tokens_before }} tokens ·
+              <span title="新生成的 summary 字元數">summary 長度</span>: {{ ev.view.summary_chars }} chars
+              {% if ev.view.from_extension %} · <span title="壓縮 summary 由 extension 提供（不是 Pi 自己生成）">來自 extension</span>{% endif %}
+            </p>
+            <p class="muted small">📝 下方是 Pi 生成的 summary，會取代被壓縮的原始訊息插入 conversation history：</p>
+            <pre class="readable compaction-summary">{{ ev.view.summary_preview }}{% if ev.view.summary_truncated %}…{% endif %}</pre>
+            {% if ev.view.summary_truncated %}
+              <details><summary>展開完整 summary</summary><pre class="readable">{{ ev.view.summary_full }}</pre></details>
+            {% endif %}
+          {% elif ev.view.kind == 'compaction_skipped' %}
+            <p class="muted">
+              <span title="Pi 嘗試壓縮但被跳過">⏭ 壓縮跳過</span> ·
+              原因: <code>{{ ev.view.reason }}</code>
+              {% if ev.view.note %} · {{ ev.view.note }}{% endif %}
+            </p>
+          {% elif ev.view.kind == 'system_prompt_assembled' %}
             <p class="muted">
               <span title="這次重新組裝 system prompt 的觸發原因">觸發原因</span>: <code>{{ ev.view.reason }}</code> ·
               <span title="組好的 system prompt 總字元數">總字元</span>: {{ ev.view.total_chars }} ·

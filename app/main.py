@@ -173,6 +173,10 @@ def create_app() -> FastAPI:
                 return "tool_execution"
             if tid.startswith("session_") and tid.endswith("_sysprompt"):
                 return "system_prompt"
+            if tid.startswith("compaction_check_"):
+                return "compaction_check"
+            if tid.startswith("compaction_"):
+                return "compaction"
             return "model_call"
 
         turn_rounds: list[dict] = []

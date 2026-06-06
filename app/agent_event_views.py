@@ -137,6 +137,76 @@ def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_compaction_check(payload: dict[str, Any]) -> dict[str, Any]:
+    ctx = int(payload.get("context_tokens") or 0)
+    window = int(payload.get("context_window") or 0)
+    threshold = int(payload.get("threshold") or 0)
+    margin = int(payload.get("margin") or 0)
+    pct = (ctx / window * 100.0) if window > 0 else 0.0
+    pct_threshold = (threshold / window * 100.0) if window > 0 else 0.0
+    return {
+        "kind": "compaction_check",
+        "trigger": bool(payload.get("trigger")),
+        "context_tokens": ctx,
+        "context_window": window,
+        "threshold": threshold,
+        "margin": margin,
+        "reserve_tokens": payload.get("reserve_tokens"),
+        "enabled": bool(payload.get("enabled")),
+        "pct_used": round(pct, 1),
+        "pct_threshold": round(pct_threshold, 1),
+    }
+
+
+def _shape_compaction_started(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "compaction_started",
+        "reason": payload.get("reason"),
+        "compaction_kind": payload.get("kind"),
+        "custom_instructions": payload.get("custom_instructions"),
+        "will_retry": payload.get("will_retry"),
+    }
+
+
+def _shape_compaction_prepared(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "compaction_prepared",
+        "first_kept_entry_id": payload.get("first_kept_entry_id"),
+        "messages_to_summarize_count": int(payload.get("messages_to_summarize_count") or 0),
+        "turn_prefix_messages_count": int(payload.get("turn_prefix_messages_count") or 0),
+        "is_split_turn": bool(payload.get("is_split_turn")),
+        "tokens_before": int(payload.get("tokens_before") or 0),
+        "previous_summary_chars": int(payload.get("previous_summary_chars") or 0),
+        "file_ops_count": int(payload.get("file_ops_count") or 0),
+        "reserve_tokens": payload.get("reserve_tokens"),
+        "custom_instructions": payload.get("custom_instructions"),
+    }
+
+
+def _shape_compaction_completed(payload: dict[str, Any]) -> dict[str, Any]:
+    summary = payload.get("summary") or ""
+    summary_chars = int(payload.get("summary_chars") or len(summary))
+    preview, did_truncate = _truncate(summary)
+    return {
+        "kind": "compaction_completed",
+        "first_kept_entry_id": payload.get("first_kept_entry_id"),
+        "tokens_before": int(payload.get("tokens_before") or 0),
+        "summary_chars": summary_chars,
+        "from_extension": bool(payload.get("from_extension")),
+        "summary_preview": preview,
+        "summary_truncated": did_truncate,
+        "summary_full": summary,
+    }
+
+
+def _shape_compaction_skipped(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "compaction_skipped",
+        "reason": payload.get("reason"),
+        "note": payload.get("note"),
+    }
+
+
 def _shape_resource_loaded(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "kind": "resource_loaded",
@@ -233,6 +303,11 @@ SHAPERS = {
     "tool_call": _shape_tool_call,
     "tool_result": _shape_tool_result,
     "system_prompt_assembled": _shape_system_prompt_assembled,
+    "compaction_check": _shape_compaction_check,
+    "compaction_started": _shape_compaction_started,
+    "compaction_prepared": _shape_compaction_prepared,
+    "compaction_completed": _shape_compaction_completed,
+    "compaction_skipped": _shape_compaction_skipped,
 }
 
 
