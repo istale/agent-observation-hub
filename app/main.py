@@ -3,6 +3,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+import asyncio
+
+from app.api.agent_events import router as agent_events_router
+from app.config import get_settings
+from app.observation_tailer import run_tailer
 from app.api.correlations import router as correlations_router
 from app.api.health import router as health_router
 from app.api.llm_calls import router as llm_calls_router
@@ -38,6 +43,24 @@ def create_app() -> FastAPI:
     init_db()
     app = FastAPI(title="Agent Observation Hub")
     app.mount("/static", StaticFiles(directory="app/ui/static"), name="static")
+
+    tailer_task: asyncio.Task[None] | None = None
+
+    @app.on_event("startup")
+    async def _start_tailer() -> None:
+        nonlocal tailer_task
+        if get_settings().observation_tail_enabled:
+            tailer_task = asyncio.create_task(run_tailer())
+
+    @app.on_event("shutdown")
+    async def _stop_tailer() -> None:
+        if tailer_task is not None:
+            tailer_task.cancel()
+            try:
+                await tailer_task
+            except asyncio.CancelledError:
+                pass
+
     app.include_router(health_router)
     app.include_router(openai_router)
     app.include_router(traces_router)
@@ -46,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(llm_calls_router)
     app.include_router(correlations_router)
     app.include_router(raw_router)
+    app.include_router(agent_events_router)
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):

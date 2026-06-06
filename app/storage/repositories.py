@@ -222,6 +222,26 @@ class Repository:
             rows = conn.execute("SELECT * FROM llm_calls WHERE trace_id = ? ORDER BY started_at ASC", (trace_id,)).fetchall()
         return [dict(row) for row in rows]
 
+    def insert_agent_event(self, data: dict[str, Any]) -> int:
+        fields = ["trace_id", "session_id", "event_seq", "stage", "source_module", "ts", "payload_ref", "payload_inline"]
+        values = {field: data.get(field) for field in fields}
+        if isinstance(values.get("payload_inline"), (dict, list)):
+            values["payload_inline"] = json.dumps(values["payload_inline"], ensure_ascii=False)
+        with db_connection(self.db_path) as conn:
+            cur = conn.execute(
+                f"INSERT INTO agent_events ({', '.join(fields)}) VALUES ({', '.join(':' + f for f in fields)})",
+                values,
+            )
+            return int(cur.lastrowid or 0)
+
+    def list_agent_events(self, trace_id: str) -> list[dict[str, Any]]:
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM agent_events WHERE trace_id = ? ORDER BY event_seq ASC, id ASC",
+                (trace_id,),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_llm_call(self, llm_call_id: str) -> dict[str, Any] | None:
         with db_connection(self.db_path) as conn:
             return _row(conn.execute("SELECT * FROM llm_calls WHERE llm_call_id = ?", (llm_call_id,)).fetchone())
