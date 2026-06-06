@@ -150,7 +150,8 @@ def create_app() -> FastAPI:
             if ctx_ev and pp_ev:
                 diff = compute_stage_diff(ctx_ev.get("payload"), pp_ev.get("payload"))
                 if diff:
-                    diffs_by_trace[tid] = diff
+                    from app.stage_diff import annotate_diff
+                    diffs_by_trace[tid] = annotate_diff(diff)
         # Split session_events into:
         #   - session_setup_events: resource_loaded (one-time, session-level setup)
         #   - turn_events: everything triggered by a user turn, in chrono order

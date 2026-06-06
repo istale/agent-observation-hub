@@ -163,6 +163,75 @@ def _diff_tools(ctx: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Cut 6d: hub-side knowledge of what each pi-ai adapter mutation means.
+# Annotates Provider Adapter Diff items with a human-readable explanation so
+# the user can answer "why did the adapter do this?" without grepping the
+# openai-completions.ts source. Falls back to None when nothing matches.
+def explain_top_change(change: dict[str, Any]) -> str | None:
+    key = (change.get("key") or "").lower()
+    kind = change.get("kind")
+    if kind == "added":
+        if key == "stream":
+            return "openai-completions adapter always sets stream=true (Pi consumes streaming responses)"
+        if key == "stream_options":
+            return "compat.supportsUsageInStreaming → adapter adds stream_options:{include_usage:true} so usage tokens come back in the stream"
+        if key == "store":
+            return "compat.supportsStore → adapter sets store=false so OpenAI doesn't retain the request"
+        if key == "prompt_cache_key":
+            return "OpenAI prompt-cache key derived from sessionId for cache hits across turns"
+        if key == "prompt_cache_retention":
+            return "compat.supportsLongCacheRetention → adapter sets 24h retention"
+        if key == "tools":
+            return "context had tools; adapter wraps each in {type:'function', function:{...}} envelope"
+        if key == "tool_choice":
+            return "options.toolChoice set by caller"
+        if key == "enable_thinking":
+            return "compat.thinkingFormat (zai/qwen) → adapter emits a provider-specific thinking toggle"
+        if key == "max_tokens" or key == "max_completion_tokens":
+            return "options.maxTokens set; field name picked from compat.maxTokensField"
+        if key == "temperature":
+            return "options.temperature explicitly set by caller"
+    if kind == "removed":
+        return "this field is internal agent state and not sent to the LLM"
+    if kind == "changed":
+        if key == "model":
+            return "agent stores model as {provider,id} dict; adapter flattens to a single string id for the API"
+    return None
+
+
+def explain_message_change(change_text: str) -> str | None:
+    text = (change_text or "").lower()
+    if text.startswith("role:"):
+        if "toolresult -> tool" in text:
+            return "OpenAI chat completions uses role='tool' for tool results (not 'toolResult')"
+        if "system -> developer" in text:
+            return "compat.supportsDeveloperRole + model.reasoning → reasoning-capable models use 'developer' role for the system prompt"
+        if "developer -> system" in text:
+            return "compat.supportsDeveloperRole=false → adapter downgrades developer role back to system"
+    if "stripped:" in text and "timestamp" in text:
+        return "Pi-internal AgentMessage metadata (timestamp/usage/responseId/stopReason/api/model/provider) not sent to the model"
+    if "stripped:" in text and "toolcallid" in text:
+        return "Pi internal toolCallId → OpenAI's tool_call_id (snake_case)"
+    if "content shape" in text:
+        if "->string" in text or "-> string" in text:
+            return "assistant content collapsed: thinking blocks → reasoning field; toolCall blocks → tool_calls field; text → top-level content string"
+    if "added: reasoning" in text or "added: tool_calls" in text:
+        return "adapter promotes content sub-types into top-level fields (reasoning from thinking blocks, tool_calls from toolCall blocks)"
+    return None
+
+
+def annotate_diff(diff: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Add 'explanation' field to each diff item in-place; returns the same dict."""
+    if not diff:
+        return diff
+    for c in diff.get("top_changes") or []:
+        c["explanation"] = explain_top_change(c)
+    for d in diff.get("message_diffs") or []:
+        if d.get("changes"):
+            d["explanations"] = [explain_message_change(c) for c in d["changes"]]
+    return diff
+
+
 def diff_change_count(diff: dict[str, Any] | None) -> int:
     """Total count of meaningful changes in a diff (added/removed messages, modified messages, top-level changes)."""
     if not diff:

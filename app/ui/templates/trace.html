@@ -591,11 +591,25 @@
                   <ul class="diff-list">
                     {% for c in diff.top_changes %}
                       {% if c.kind == 'added' %}
-                        <li><span class="diff-add" title="這個欄位是 adapter 自己加進去的，agent 本來沒這個欄位">+</span> <code>{{ c.key }}</code> = <code>{{ c.value | tojson | truncate(100) }}</code> <span class="muted small">由 adapter 新增</span></li>
+                        <li>
+                          <span class="diff-add" title="這個欄位是 adapter 自己加進去的，agent 本來沒這個欄位">+</span>
+                          <code>{{ c.key }}</code> = <code>{{ c.value | tojson | truncate(100) }}</code>
+                          <span class="muted small">由 adapter 新增</span>
+                          {% if c.explanation %}<div class="diff-explanation" title="這條改動的常見原因">💡 {{ c.explanation }}</div>{% endif %}
+                        </li>
                       {% elif c.kind == 'removed' %}
-                        <li><span class="diff-rem" title="agent 本來有這個欄位，adapter 把它拿掉了（通常是因為 model API 不認）">−</span> <code>{{ c.key }}</code> <span class="muted small">由 adapter 移除</span></li>
+                        <li>
+                          <span class="diff-rem" title="agent 本來有這個欄位，adapter 把它拿掉了（通常是因為 model API 不認）">−</span>
+                          <code>{{ c.key }}</code>
+                          <span class="muted small">由 adapter 移除</span>
+                          {% if c.explanation %}<div class="diff-explanation">💡 {{ c.explanation }}</div>{% endif %}
+                        </li>
                       {% else %}
-                        <li><span class="diff-chg" title="兩邊都有但值不一樣">~</span> <code>{{ c.key }}</code>: <code>{{ c.ctx_value | tojson | truncate(60) }}</code> → <code>{{ c.pp_value | tojson | truncate(60) }}</code></li>
+                        <li>
+                          <span class="diff-chg" title="兩邊都有但值不一樣">~</span>
+                          <code>{{ c.key }}</code>: <code>{{ c.ctx_value | tojson | truncate(60) }}</code> → <code>{{ c.pp_value | tojson | truncate(60) }}</code>
+                          {% if c.explanation %}<div class="diff-explanation">💡 {{ c.explanation }}</div>{% endif %}
+                        </li>
                       {% endif %}
                     {% endfor %}
                   </ul>
@@ -626,7 +640,12 @@
                           {% if d.kind == 'added' %}<span class="diff-add" title="這筆是 adapter 在這個位置插入的（agent 本來沒有）">ADDED</span>
                           {% elif d.kind == 'removed' %}<span class="diff-rem" title="agent 本來有這筆，adapter 把它拿掉了">REMOVED</span>
                           {% elif d.kind == 'modified' %}
-                            {% for ch in d.changes %}<div class="muted small" title="role: 角色被改名了 / content shape: 內容格式變了 / stripped: 這些欄位被拿掉 / added: 這些欄位是 adapter 加的">{{ ch }}</div>{% endfor %}
+                            {% for ch in d.changes %}
+                              <div class="muted small" title="role: 角色被改名了 / content shape: 內容格式變了 / stripped: 這些欄位被拿掉 / added: 這些欄位是 adapter 加的">{{ ch }}</div>
+                              {% if d.explanations and d.explanations[loop.index0] %}
+                                <div class="diff-explanation small">💡 {{ d.explanations[loop.index0] }}</div>
+                              {% endif %}
+                            {% endfor %}
                           {% else %}<span class="muted" title="完全一樣，沒有改動">—</span>{% endif %}
                         </td>
                       </tr>
