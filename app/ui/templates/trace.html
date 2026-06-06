@@ -128,24 +128,52 @@
       <span class="help-inline" title="從使用者按下送出開始，到 model 回完訊息為止。一個 session 裡每按一次送出都會產生一段這樣的 timeline。">ⓘ</span>
     </h3>
     <p class="help-section-intro">
-      下方按時間順序顯示 Pi 從「收到使用者輸入」到「model 回應完畢」之間的每個 stage。每出現一筆 <code>before_agent_start</code> 就代表使用者送出了一次 prompt。
+      下方按時間順序顯示 Pi 處理使用者 prompt 的每個 stage，並依「round」分群——一個 round 是一次 model 呼叫或一次 tool 執行。
+      <strong>這次共有 {{ model_call_total }} 次 model 呼叫</strong>。
     </p>
-    {% if turn_events %}
+    <details class="help-block">
+      <summary>「Model Response」在哪裡看？為什麼有時候有兩次 Model Call？</summary>
+      <p><strong>Model 沒有獨立的 response event。</strong>Model 回完之後，它的回應有兩種去處：</p>
+      <ul>
+        <li>📨 <strong>直接給使用者的最終回答</strong>：顯示在頁面下方的「LLM Calls」區塊的 <code>Assistant</code> 欄位。</li>
+        <li>🔧 <strong>請 agent 幫忙呼叫 tool</strong>：顯示在這個 round 之後的「Tool Execution」事件。</li>
+      </ul>
+      <p><strong>為什麼一次使用者輸入會觸發多次 Model Call？</strong></p>
+      <p>典型的 tool 使用流程：</p>
+      <ol>
+        <li>Model Call #1：model 看了 user 的問題後，決定「我需要先用 bash 看一下檔案」→ 回傳 tool_call</li>
+        <li>Tool Execution：Pi 執行 bash → 拿到結果</li>
+        <li>Model Call #2：Pi 把 tool 結果塞進 context 再問 model 一次 → model 這次直接回答 user</li>
+      </ol>
+      <p>每次 Model Call 都會有自己一組 <code>before_provider_request</code> + <code>context</code> + <code>before_provider_payload</code>。第二次的 <code>context</code> 會比第一次多一筆 toolResult 訊息——你點開比對就能看到。</p>
+    </details>
+    {% if turn_rounds %}
     <div class="user-submit-marker" title="這是使用者打字並按下送出的瞬間——所有下方的 agent 處理都是被這個動作觸發的">
       <span class="user-submit-icon">👤</span>
       <span>使用者送出 prompt（這個動作本身不是 event，但它觸發了下方所有 agent 處理）</span>
       <span class="user-submit-arrow">↓</span>
     </div>
-    <div class="stack">
-      {% for ev in turn_events %}
-        {# Each new before_agent_start marks the start of a new user turn within this session. #}
-        {% if not loop.first and ev.stage == 'before_agent_start' %}
+    {% for round in turn_rounds %}
+      {% if round.kind == 'user_input' and not loop.first %}
         <div class="user-submit-marker" title="使用者在同一個 session 內又送出了下一個 prompt">
           <span class="user-submit-icon">👤</span>
           <span>使用者送出下一個 prompt</span>
           <span class="user-submit-arrow">↓</span>
         </div>
-        {% endif %}
+      {% elif round.kind == 'model_call' %}
+        <div class="round-header round-model-call" title="這是一次完整的 LLM 呼叫。包含 3 個 stage：before_provider_request (準備呼叫)、context (送給模型的 agent 內部 message)、before_provider_payload (adapter 改寫後即將送 HTTP 的 payload)">
+          <span class="round-icon">🤖</span>
+          <span class="round-label">Model Call #{{ round.index }}{% if round.index == model_call_total %} <span class="muted small">（最後一次）</span>{% endif %}</span>
+          <span class="round-meta muted small">trace <code>{{ round.trace_id[:12] }}…</code></span>
+        </div>
+      {% elif round.kind == 'tool_execution' %}
+        <div class="round-header round-tool-exec" title="上一次 Model Call 要求 Pi 幫忙執行 tool；這裡是 tool 的執行過程與結果。下一次 Model Call 的 context 會包含這個結果。">
+          <span class="round-icon">🔧</span>
+          <span class="round-label">Tool Execution</span>
+          <span class="round-meta muted small">執行 tool 並把結果準備好給下一次 Model Call</span>
+        </div>
+      {% endif %}
+      {% for ev in round.events %}
         <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
           <summary>
             <span class="badge" title="這是 stage 名稱。before_agent_start = 收到使用者輸入；resource_loaded = 載入 skills/templates；context = 即將送給模型的 message 陣列；before_provider_payload = adapter 改寫後的最終 payload；tool_call / tool_result = 工具呼叫前後。">{{ ev.stage }}</span>
@@ -319,7 +347,7 @@
           {% endif %}
         </details>
       {% endfor %}
-    </div>
+    {% endfor %}
     {% else %}
     <p class="muted">這個 session 沒有任何 agent event。可能原因：1) 這是用 curl 直打 hub 的測試 trace；2) Pi 端 emit 模組被 <code>AOH_OBSERVATION_DISABLE=1</code> 關掉；3) hub tailer 還沒 ingest 完。</p>
     {% endif %}

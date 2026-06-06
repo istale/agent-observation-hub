@@ -159,6 +159,34 @@ def create_app() -> FastAPI:
         # createAgentSession() but it's setup, not part of any turn.
         session_setup_events = [e for e in session_events if e["stage"] == "resource_loaded"]
         turn_events = [e for e in session_events if e["stage"] != "resource_loaded"]
+
+        # Group consecutive events by trace_id into "rounds" so the timeline
+        # can label each model-call round (#1, #2) and each tool execution.
+        # trace_id schemes (set by Pi-side emitters):
+        #   prompt_<rand>      → one user turn (before_agent_start)
+        #   <uuid>             → one model call (before_provider_request + context + before_provider_payload)
+        #   tool_<call_id>     → one tool execution (tool_call + tool_result)
+        def _classify(tid: str) -> str:
+            if tid.startswith("prompt_"):
+                return "user_input"
+            if tid.startswith("tool_"):
+                return "tool_execution"
+            return "model_call"
+
+        turn_rounds: list[dict] = []
+        last_tid: str | None = None
+        model_call_n = 0
+        for ev in turn_events:
+            tid = ev["trace_id"]
+            if tid != last_tid:
+                kind = _classify(tid)
+                round_obj = {"kind": kind, "trace_id": tid, "events": []}
+                if kind == "model_call":
+                    model_call_n += 1
+                    round_obj["index"] = model_call_n
+                turn_rounds.append(round_obj)
+                last_tid = tid
+            turn_rounds[-1]["events"].append(ev)
         return templates.TemplateResponse(request, "trace.html", {
             "trace_id": trace_id,
             "run": run,
@@ -171,6 +199,8 @@ def create_app() -> FastAPI:
             "session_events": session_events,
             "session_setup_events": session_setup_events,
             "turn_events": turn_events,
+            "turn_rounds": turn_rounds,
+            "model_call_total": model_call_n,
             "session_id": session_id,
             "stage_diffs": diffs_by_trace,
         })
