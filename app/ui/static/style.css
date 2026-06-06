@@ -218,3 +218,21 @@ details.stage-diff summary { cursor: pointer; }
 .role-user       { background:#dff5ec; }
 .role-assistant  { background:#e3edf6; }
 .role-tool, .role-toolResult { background:#f7e3dc; }
+
+/* --- Pinned Constraints --- */
+.constraint-form { display:flex; gap:8px; margin: 8px 0; }
+.constraint-form input { flex:1; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:14px; }
+.constraint-form button { padding:6px 16px; background:#2e8b57; color:white; border:0; border-radius:4px; cursor:pointer; }
+.constraint-list { list-style:none; padding:0; margin:8px 0; }
+.constraint-list li {
+  display:flex; align-items:center; gap:10px;
+  padding:6px 10px; background:#f5fff8;
+  border-left:3px solid #2e8b57; border-radius:3px;
+  margin-bottom:4px;
+}
+.constraint-text { flex:1; }
+.delete-btn {
+  background:transparent; border:0; color:#b02a37; font-size:18px;
+  cursor:pointer; font-weight:700;
+}
+.delete-btn:hover { color:#7a1822; }

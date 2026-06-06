@@ -261,6 +261,34 @@ class Repository:
             result[sid][row["stage"]] = int(row["c"])
         return result
 
+    def insert_pinned_constraint(self, data: dict[str, Any]) -> None:
+        fields = ["id", "text", "scope"]
+        values = {field: data.get(field) for field in fields}
+        values["scope"] = values.get("scope") or "global"
+        with db_connection(self.db_path) as conn:
+            conn.execute(
+                f"INSERT INTO pinned_constraints ({', '.join(fields)}) VALUES ({', '.join(':' + f for f in fields)})",
+                values,
+            )
+
+    def list_pinned_constraints(self, scope: str | None = None) -> list[dict[str, Any]]:
+        with db_connection(self.db_path) as conn:
+            if scope:
+                rows = conn.execute(
+                    "SELECT * FROM pinned_constraints WHERE scope = ? ORDER BY created_at ASC",
+                    (scope,),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM pinned_constraints ORDER BY scope ASC, created_at ASC"
+                ).fetchall()
+        return [dict(row) for row in rows]
+
+    def delete_pinned_constraint(self, constraint_id: str) -> int:
+        with db_connection(self.db_path) as conn:
+            cur = conn.execute("DELETE FROM pinned_constraints WHERE id = ?", (constraint_id,))
+            return int(cur.rowcount or 0)
+
     def list_agent_events_by_session(self, session_id: str, limit: int = 200) -> list[dict[str, Any]]:
         with db_connection(self.db_path) as conn:
             rows = conn.execute(

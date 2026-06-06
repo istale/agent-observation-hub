@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 import asyncio
 
 from app.api.agent_events import router as agent_events_router
+from app.api.constraints import router as constraints_router
 from app.config import get_settings
 from app.observation_tailer import run_tailer
 from app.api.correlations import router as correlations_router
@@ -70,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(correlations_router)
     app.include_router(raw_router)
     app.include_router(agent_events_router)
+    app.include_router(constraints_router)
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
@@ -79,7 +81,8 @@ def create_app() -> FastAPI:
         stage_counts = repo.stage_counts_for_sessions(list({sid for sid in session_ids}))
         for r in runs:
             r["stage_counts"] = stage_counts.get(r.get("session_id"), {})
-        return templates.TemplateResponse(request, "index.html", {"runs": runs})
+        constraints = repo.list_pinned_constraints()
+        return templates.TemplateResponse(request, "index.html", {"runs": runs, "constraints": constraints})
 
     @app.get("/traces/{trace_id}", response_class=HTMLResponse)
     def trace_page(request: Request, trace_id: str):

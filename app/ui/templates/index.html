@@ -8,6 +8,42 @@
 <body>
   <main>
     <h1>Agent Observation Hub</h1>
+
+    <h2>Pinned Constraints</h2>
+    <p class="muted small">Rules injected into every pi prompt. Pi reads <code>~/.pi/observation/constraints.json</code> at turn start.</p>
+    <form id="constraint-form" class="constraint-form" onsubmit="addConstraint(event)">
+      <input type="text" id="constraint-text" placeholder="e.g. prefer agentic grep over vector RAG" required>
+      <button type="submit">Pin</button>
+    </form>
+    {% if constraints %}
+      <ul class="constraint-list">
+        {% for c in constraints %}
+          <li>
+            <span class="constraint-text">{{ c.text }}</span>
+            <span class="muted small">{{ c.created_at }}</span>
+            <button class="delete-btn" onclick="deleteConstraint('{{ c.id }}')">×</button>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No constraints pinned. Add one above to inject project-level rules into pi.</p>
+    {% endif %}
+    <script>
+      async function addConstraint(e) {
+        e.preventDefault();
+        const text = document.getElementById('constraint-text').value.trim();
+        if (!text) return;
+        const resp = await fetch('/api/constraints', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text}) });
+        if (resp.ok) location.reload();
+        else alert('failed: ' + await resp.text());
+      }
+      async function deleteConstraint(id) {
+        if (!confirm('Remove this constraint?')) return;
+        const resp = await fetch('/api/constraints/' + id, { method: 'DELETE' });
+        if (resp.ok) location.reload();
+      }
+    </script>
+
     <h2>Recent Trace Runs</h2>
     <table>
       <thead><tr><th>Started</th><th>Trace</th><th>Status</th><th>Agent</th><th>Stages</th></tr></thead>
