@@ -437,10 +437,25 @@ def _shape_tool_result(payload: dict[str, Any]) -> dict[str, Any]:
         "tool_name": payload.get("tool_name"),
         "tool_call_id": payload.get("tool_call_id"),
         "is_error": bool(payload.get("is_error")),
+        "error_kind": payload.get("error_kind"),
         "duration_ms": payload.get("duration_ms"),
         "result_preview": preview,
         "result_truncated": did_truncate,
         "result_full": result_text,
+    }
+
+
+def _shape_tool_execution_update(payload: dict[str, Any]) -> dict[str, Any]:
+    partial_text = _stringify_result(payload.get("partial_result"))
+    preview, did_truncate = _truncate(partial_text)
+    return {
+        "kind": "tool_execution_update",
+        "tool_name": payload.get("tool_name"),
+        "tool_call_id": payload.get("tool_call_id"),
+        "elapsed_ms": payload.get("elapsed_ms"),
+        "partial_preview": preview,
+        "partial_truncated": did_truncate,
+        "partial_full": partial_text,
     }
 
 
@@ -485,6 +500,7 @@ SHAPERS = {
     "active_tools_changed": _shape_active_tools_changed,
     "session_reloaded": _shape_session_reloaded,
     "convert_to_llm": _shape_convert_to_llm,
+    "tool_execution_update": _shape_tool_execution_update,
 }
 
 

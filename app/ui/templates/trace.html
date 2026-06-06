@@ -541,11 +541,26 @@
             {% if ev.view.args_truncated %}
               <details><summary>展開完整 args</summary><pre class="readable">{{ ev.view.args_full }}</pre></details>
             {% endif %}
+          {% elif ev.view.kind == 'tool_execution_update' %}
+            <p class="muted">
+              <span title="tool 還在執行中，這是一個中途的部分結果快照（例如 bash 持續輸出 stdout）">⏳ tool 中途更新</span> ·
+              工具: <code>{{ ev.view.tool_name }}</code> ·
+              呼叫 id: <code>{{ ev.view.tool_call_id }}</code> ·
+              <span title="從 tool_call 開始到這個 update 經過了多久">已過 {{ ev.view.elapsed_ms }}ms</span>
+            </p>
+            <p class="help-section-intro">這是部分結果（partial_result），最終結果會在下方 tool_result 顯示。</p>
+            <pre class="readable">{{ ev.view.partial_preview }}{% if ev.view.partial_truncated %}…{% endif %}</pre>
+            {% if ev.view.partial_truncated %}
+              <details><summary>展開完整 partial_result</summary><pre class="readable">{{ ev.view.partial_full }}</pre></details>
+            {% endif %}
           {% elif ev.view.kind == 'tool_result' %}
             <p class="muted">
               工具名稱: <code>{{ ev.view.tool_name }}</code> ·
               呼叫 id: <code title="跟前一個 tool_call 的 id 配對">{{ ev.view.tool_call_id }}</code> ·
-              {% if ev.view.is_error %}<span class="tool-err" title="tool 執行失敗（permission denied / timeout / 非零 exit code 等）">ERROR</span>{% else %}<span class="tool-ok" title="tool 執行成功">ok</span>{% endif %} ·
+              {% if ev.view.is_error %}
+                <span class="tool-err" title="tool 執行失敗">ERROR</span>
+                {% if ev.view.error_kind %}<span class="role-tag" style="background:#fbe2dd" title="自動分類的失敗原因">{{ ev.view.error_kind }}</span>{% endif %}
+              {% else %}<span class="tool-ok" title="tool 執行成功">ok</span>{% endif %} ·
               <span title="tool 從開始到結束花了幾毫秒">{{ ev.view.duration_ms }}ms</span>
             </p>
             <p class="help-section-intro">下方是 tool 的執行結果（會在下一輪 model 呼叫時被注入 context 給 model 看）：</p>

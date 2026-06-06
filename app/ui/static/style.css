@@ -487,3 +487,18 @@ details.agent-event-convert_to_llm { border-left-color: #20b2aa; }
 
 /* Cut 6g: convert_to_llm event */
 details.agent-event-convert_to_llm { border-left-color: #20b2aa; }
+
+/* Cut 6h: tool execution update */
+details.agent-event-tool_execution_update {
+  border-left-color: #d4a017;
+  margin-left: 28px;
+  position: relative;
+}
+details.agent-event-tool_execution_update::before {
+  content: "↳";
+  position: absolute;
+  left: -22px;
+  top: 12px;
+  color: #888;
+  font-weight: 700;
+}
