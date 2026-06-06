@@ -137,6 +137,52 @@ def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_model_response_meta(payload: dict[str, Any]) -> dict[str, Any]:
+    headers = payload.get("headers") or {}
+    interesting = {}
+    if isinstance(headers, dict):
+        for k, v in headers.items():
+            kl = k.lower() if isinstance(k, str) else k
+            if any(s in (kl or "") for s in ("ratelimit", "request-id", "x-request", "model", "openai-", "anthropic-", "minimax")):
+                interesting[k] = v
+    return {
+        "kind": "model_response_meta",
+        "status": payload.get("status"),
+        "latency_ms": payload.get("latency_ms"),
+        "model_provider": payload.get("model_provider"),
+        "model_id": payload.get("model_id"),
+        "interesting_headers": interesting,
+        "all_headers": headers if isinstance(headers, dict) else None,
+    }
+
+
+def _shape_assistant_message_finalized(payload: dict[str, Any]) -> dict[str, Any]:
+    usage = payload.get("usage") or {}
+    cs = payload.get("content_summary") or {}
+    cb = payload.get("content_blocks") or []
+    return {
+        "kind": "assistant_message_finalized",
+        "stop_reason": payload.get("stop_reason"),
+        "error_message": payload.get("error_message"),
+        "api": payload.get("api"),
+        "provider": payload.get("provider"),
+        "model": payload.get("model"),
+        "response_model": payload.get("response_model"),
+        "response_id": payload.get("response_id"),
+        "input_tokens": usage.get("input") or usage.get("inputTokens"),
+        "output_tokens": usage.get("output") or usage.get("outputTokens"),
+        "cache_read": usage.get("cacheRead"),
+        "cache_write": usage.get("cacheWrite"),
+        "total_tokens": usage.get("totalTokens") or usage.get("total"),
+        "cost": (usage.get("cost") or {}).get("total"),
+        "text_blocks": cs.get("text_blocks", 0),
+        "thinking_blocks": cs.get("thinking_blocks", 0),
+        "tool_calls": cs.get("tool_calls", 0),
+        "content_blocks": cb,
+        "diagnostics": payload.get("diagnostics"),
+    }
+
+
 def _shape_compaction_check(payload: dict[str, Any]) -> dict[str, Any]:
     ctx = int(payload.get("context_tokens") or 0)
     window = int(payload.get("context_window") or 0)
@@ -308,6 +354,8 @@ SHAPERS = {
     "compaction_prepared": _shape_compaction_prepared,
     "compaction_completed": _shape_compaction_completed,
     "compaction_skipped": _shape_compaction_skipped,
+    "model_response_meta": _shape_model_response_meta,
+    "assistant_message_finalized": _shape_assistant_message_finalized,
 }
 
 

@@ -458,3 +458,7 @@ pre.compaction-summary {
   background: #fffbf3;
   border-color: #efe4c4;
 }
+
+/* --- Cut 6c: model response events --- */
+details.agent-event-model_response_meta        { border-left-color: #4682b4; }
+details.agent-event-assistant_message_finalized { border-left-color: #2e8b57; }

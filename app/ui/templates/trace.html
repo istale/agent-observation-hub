@@ -221,7 +221,64 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'compaction_check' %}
+          {% if ev.view.kind == 'model_response_meta' %}
+            <p class="muted">
+              <span title="上游 LLM 回應的 HTTP 狀態碼">HTTP</span>: <code>{{ ev.view.status }}</code> ·
+              <span title="從送出 request 到第一個 response byte 的時間（含 hub gateway）">總延遲</span>: <strong>{{ ev.view.latency_ms }}ms</strong> ·
+              <span title="這次呼叫實際打的 model">model</span>: <code>{{ ev.view.model_provider }}/{{ ev.view.model_id }}</code>
+            </p>
+            {% if ev.view.interesting_headers %}
+              <details><summary>有意義的 response headers ({{ ev.view.interesting_headers | length }})</summary>
+                <ul class="resource-list">
+                  {% for k, v in ev.view.interesting_headers.items() %}<li><code>{{ k }}</code>: <code>{{ v }}</code></li>{% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+            {% if ev.view.all_headers %}
+              <details><summary>完整 response headers ({{ ev.view.all_headers | length }})</summary>
+                <ul class="resource-list">
+                  {% for k, v in ev.view.all_headers.items() %}<li><code>{{ k }}</code>: <code>{{ v }}</code></li>{% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+          {% elif ev.view.kind == 'assistant_message_finalized' %}
+            <p class="muted">
+              <span title="model 結束生成的原因：stop = 正常結束；tool_use = 要呼叫 tool；length = 達到 token 上限；error = 失敗">stop_reason</span>:
+              {% if ev.view.stop_reason == 'tool_use' %}<span class="role-tag" style="background:#f7e3dc">🔧 tool_use</span>
+              {% elif ev.view.stop_reason == 'stop' %}<span class="role-tag" style="background:#dff5ec">✅ stop</span>
+              {% elif ev.view.stop_reason == 'length' %}<span class="role-tag" style="background:#fdf3df">⚠ length</span>
+              {% elif ev.view.stop_reason == 'error' %}<span class="role-tag" style="background:#fbe2dd">❌ error</span>
+              {% else %}<span class="role-tag">{{ ev.view.stop_reason }}</span>{% endif %} ·
+              <span title="model 真實 id（OpenRouter auto-routing 時會與 requested model 不同）">model</span>: <code>{{ ev.view.model }}</code>
+              {% if ev.view.response_model and ev.view.response_model != ev.view.model %} → <code title="實際 routed 到的 model">{{ ev.view.response_model }}</code>{% endif %}
+              {% if ev.view.response_id %} · <span title="上游回應 id（供 audit 用）">response_id</span>: <code>{{ ev.view.response_id }}</code>{% endif %}
+            </p>
+            <p class="muted small">
+              <span title="model 看到的 token 數（input）">input</span>: {{ ev.view.input_tokens }} ·
+              <span title="model 生成的 token 數（output）">output</span>: {{ ev.view.output_tokens }} ·
+              <span title="從 prompt cache 命中的 token 數">cache_read</span>: {{ ev.view.cache_read }} ·
+              <span title="寫入 prompt cache 的 token 數">cache_write</span>: {{ ev.view.cache_write }} ·
+              <span title="本次呼叫所有 token 加總">total</span>: <strong>{{ ev.view.total_tokens }}</strong>
+              {% if ev.view.cost %} · <span title="預估成本（美金）">cost</span>: ${{ ev.view.cost }}{% endif %}
+            </p>
+            <p class="muted small">
+              <span title="model 生成的純文字 block 數量">text blocks</span>: {{ ev.view.text_blocks }} ·
+              <span title="model 生成的 reasoning/thinking block 數量">thinking blocks</span>: {{ ev.view.thinking_blocks }} ·
+              <span title="model 觸發的 tool call 數量；若 > 0，下方會接 Tool Execution round">tool_calls</span>: {{ ev.view.tool_calls }}
+            </p>
+            {% if ev.view.content_blocks %}
+              <details><summary>content blocks 結構 ({{ ev.view.content_blocks | length }})</summary>
+                <ul class="resource-list">
+                  {% for b in ev.view.content_blocks %}
+                    <li><strong>{{ b.type }}</strong>{% if b.chars %} <span class="muted small">{{ b.chars }} chars</span>{% endif %}{% if b.name %} <code>{{ b.name }}</code>{% endif %}</li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+            {% if ev.view.error_message %}
+              <p class="tool-err">❌ {{ ev.view.error_message }}</p>
+            {% endif %}
+          {% elif ev.view.kind == 'compaction_check' %}
             <p class="muted">
               <span title="是否觸發壓縮：true = context 超過門檻、會立即進入 Context Compaction round；false = 還沒滿、本次不壓縮">觸發壓縮</span>:
               {% if ev.view.trigger %}<span class="tool-err">是</span>{% else %}<span class="tool-ok">否</span>{% endif %} ·
