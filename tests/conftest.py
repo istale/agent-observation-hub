@@ -12,6 +12,8 @@ def app_client(tmp_path, monkeypatch):
     monkeypatch.setenv("UPSTREAM_OPENAI_BASE_URL", "http://upstream.test")
     monkeypatch.setenv("ALLOW_RAW_VIEW", "false")
     monkeypatch.setenv("AOH_PAYLOAD_MODE", "redacted")
+    monkeypatch.setenv("AOH_OBSERVATION_DIR", str(tmp_path / "observation"))
+    monkeypatch.setenv("AOH_OBSERVATION_TAIL_DISABLE", "1")
 
     from app.config import get_settings
     from app.main import create_app

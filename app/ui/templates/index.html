@@ -10,16 +10,21 @@
     <h1>Agent Observation Hub</h1>
     <h2>Recent Trace Runs</h2>
     <table>
-      <thead><tr><th>Started</th><th>Trace</th><th>Run</th><th>Status</th><th>Agent</th><th>Channel</th></tr></thead>
+      <thead><tr><th>Started</th><th>Trace</th><th>Status</th><th>Agent</th><th>Stages</th></tr></thead>
       <tbody>
       {% for run in runs %}
         <tr>
-          <td>{{ run.started_at | taipei_time }}</td>
-          <td><a href="/traces/{{ run.trace_id }}">{{ run.trace_id }}</a></td>
-          <td>{{ run.run_id }}</td>
+          <td class="muted small">{{ run.started_at | taipei_time }}</td>
+          <td><a href="/traces/{{ run.trace_id }}">{{ run.trace_id[:18] }}…</a></td>
           <td>{{ run.status }}</td>
           <td>{{ run.agent_id }}</td>
-          <td>{{ run.channel }}</td>
+          <td class="stage-chips">
+            {% set sc = run.stage_counts or {} %}
+            {% if sc.get('before_agent_start') %}<span class="chip chip-prompt" title="user turns">👤 {{ sc.before_agent_start }}</span>{% endif %}
+            {% if sc.get('resource_loaded') %}<span class="chip chip-res" title="resource loaded">📚</span>{% endif %}
+            {% if sc.get('before_provider_payload') %}<span class="chip chip-llm" title="model calls">🤖 {{ sc.before_provider_payload }}</span>{% endif %}
+            {% if sc.get('tool_call') %}<span class="chip chip-tool" title="tool calls">🔧 {{ sc.tool_call }}</span>{% endif %}
+          </td>
         </tr>
       {% endfor %}
       </tbody>

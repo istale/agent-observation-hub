@@ -242,6 +242,25 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def stage_counts_for_sessions(self, session_ids: list[str]) -> dict[str, dict[str, int]]:
+        """Return {session_id: {stage: count}} for the given sessions in one query."""
+        result: dict[str, dict[str, int]] = {sid: {} for sid in session_ids}
+        if not session_ids:
+            return result
+        placeholders = ",".join("?" for _ in session_ids)
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                f"SELECT session_id, stage, COUNT(*) AS c FROM agent_events "
+                f"WHERE session_id IN ({placeholders}) GROUP BY session_id, stage",
+                session_ids,
+            ).fetchall()
+        for row in rows:
+            sid = row["session_id"]
+            if sid not in result:
+                result[sid] = {}
+            result[sid][row["stage"]] = int(row["c"])
+        return result
+
     def list_agent_events_by_session(self, session_id: str, limit: int = 200) -> list[dict[str, Any]]:
         with db_connection(self.db_path) as conn:
             rows = conn.execute(

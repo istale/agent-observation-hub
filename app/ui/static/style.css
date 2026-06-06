@@ -145,3 +145,34 @@ details.agent-event-tool_call   { border-left-color: #c0392b; }
 details.agent-event-tool_result { border-left-color: #16a085; }
 .tool-err { background:#fbe2dd; color:#9d2a1c; padding:1px 6px; border-radius:3px; font-weight:700; font-size:11px; }
 .tool-ok  { background:#dff5ec; color:#0d6b4f; padding:1px 6px; border-radius:3px; font-size:11px; }
+
+/* index stage chips */
+.stage-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  font-family: monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #eef1f4;
+  border: 1px solid #d8dde2;
+}
+.chip-prompt { background: #e7f5ec; border-color: #b3dec1; }
+.chip-res    { background: #fff4dc; border-color: #f0d5a0; }
+.chip-llm    { background: #e3edf6; border-color: #b2c8dc; }
+.chip-tool   { background: #f7e3dc; border-color: #e8b29c; }
+
+/* Tool events visually nest under preceding model call */
+details.agent-event-tool_call,
+details.agent-event-tool_result {
+  margin-left: 28px;
+  position: relative;
+}
+details.agent-event-tool_call::before,
+details.agent-event-tool_result::before {
+  content: "↳";
+  position: absolute;
+  left: -22px;
+  top: 12px;
+  color: #888;
+  font-weight: 700;
+}

@@ -73,7 +73,12 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
-        runs = Repository.from_env().list_runs(100)
+        repo = Repository.from_env()
+        runs = repo.list_runs(100)
+        session_ids = [r["session_id"] for r in runs if r.get("session_id") and r["session_id"] != "unknown"]
+        stage_counts = repo.stage_counts_for_sessions(list({sid for sid in session_ids}))
+        for r in runs:
+            r["stage_counts"] = stage_counts.get(r.get("session_id"), {})
         return templates.TemplateResponse(request, "index.html", {"runs": runs})
 
     @app.get("/traces/{trace_id}", response_class=HTMLResponse)
