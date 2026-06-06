@@ -146,6 +146,28 @@
         <li>Model Call #2：Pi 把 tool 結果塞進 context 再問 model 一次 → model 這次直接回答 user</li>
       </ol>
       <p>每次 Model Call 都會有自己一組 <code>before_provider_request</code> + <code>context</code> + <code>before_provider_payload</code>。第二次的 <code>context</code> 會比第一次多一筆 toolResult 訊息——你點開比對就能看到。</p>
+      <p><strong>典型 timeline 長這樣（對照下方 Turn Timeline 看）：</strong></p>
+      <pre class="flow-diagram" title="這是一個用到 tool 的典型 prompt 的完整 timeline。對照下方真實 cards 一個一個看，就能理解每個 stage 在系統裡的位置。">🛠 Session 啟動設定
+└ resource_loaded                                                    ← Pi 啟動時掃描 skills / templates / AGENTS.md
+
+📜 對話流程 Turn Timeline
+👤 使用者送出 prompt ↓
+└ before_agent_start                                                 ← 收到 user 輸入
+
+🤖 Model Call #1
+└ before_provider_request                                            ← Pi 準備呼叫 model
+└ context           ← model 這時看到：使用者問題
+└ before_provider_payload ← 送 HTTP 出去，model 回應：「我要用 bash」
+
+🔧 Tool Execution
+   ↳ tool_call      ← model 要求的 args（例如 {"command": "echo hi"}）
+   ↳ tool_result    ← bash 跑完的 stdout
+
+🤖 Model Call #2 (最後一次)
+└ before_provider_request
+└ context           ← model 這時看到：使用者問題 <strong>+ tool 結果</strong>
+└ before_provider_payload ← 送 HTTP 出去，model 給最終回答</pre>
+      <p class="muted small">📌 看每個 round 的 <code>context</code> 卡片就能驗證 model「下一輪看到了上一輪的什麼」——這是 debug agent 行為最直接的入口。</p>
     </details>
     {% if turn_rounds %}
     <div class="user-submit-marker" title="這是使用者打字並按下送出的瞬間——所有下方的 agent 處理都是被這個動作觸發的">
