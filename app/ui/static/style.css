@@ -239,16 +239,33 @@ details.stage-diff summary { cursor: pointer; }
 .chip-diff { background:#fdf3df; border-color:#e8d2a5; }
 
 /* --- Side-by-side payload diff page --- */
-main.wide { max-width: none; padding: 16px 24px; }
-.diff-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+main.wide {
+  max-width: none;
+  width: 100%;
+  padding: 16px 24px;
+  box-sizing: border-box;
+}
+.diff-columns {
+  display: grid;
+  /* min-width:0 on the track lets each column actually shrink — without
+     it, the inner <pre white-space:pre> will force its column wider than
+     the viewport. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+}
+.diff-col { min-width: 0; }
 .diff-col h3 { margin: 0 0 4px 0; font-size: 13px; color: #555; }
 .json-pane {
   background: #fff; border: 1px solid #dce1e4; border-radius: 4px;
   padding: 8px; margin: 0;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 11px;
-  max-height: 80vh; overflow: auto;
+  max-height: 80vh;
+  overflow: auto;          /* per-column horizontal scroll for long JSON lines */
   white-space: pre;
+  box-sizing: border-box;
+  width: 100%;
 }
 .json-line { display: block; padding: 0 4px; min-height: 1.2em; }
 .json-line.equal { background: transparent; }
