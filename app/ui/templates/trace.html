@@ -62,6 +62,46 @@
     </p>
     <details class="help-block">
       <summary>各 stage 的意義（第一次來必看）</summary>
+      <p><strong>誰產生這些事件？</strong> 下方所有 stage 都來自一個 <code>AgentSession</code> 實例的某個 method。AgentSession 是 Pi 高階 SDK 的核心——下圖說明它從哪裡來、跟低階 AgentHarness 的關係，以及為什麼這頁能看到這麼多細節：</p>
+      <pre class="flow-diagram" title="左邊是我們完整 instrument 的路徑（pi CLI / 多數 SDK 使用者）；右邊是低階替代路徑（少數進階使用者），我們沒裝 stage 事件。對應的 source_module 標在每個 callsite。">你的 app / pi CLI
+   │
+   ├─── 高階 SDK（推薦、完整觀測 ✅）────────────┐
+   │                                              │
+   │   createAgentSession()                       │  📁 coding-agent/src/core/sdk.ts
+   │     │ ── emit <strong>resource_loaded</strong>                  │
+   │     │ ── 建立 SettingsManager / SessionManager
+   │     │ ── 建立 DefaultResourceLoader → load
+   │     │     skills / templates / AGENTS.md
+   │     │ ── 建立 Agent（含 streamFn callback）
+   │     │       streamFn 之後會 emit Cut 1 headers
+   │     │       + before_provider_request / context
+   │     │       / convert_to_llm / before_provider_payload
+   │     │       / model_response_meta
+   │     │ ── 用 AgentSession 包起來
+   │     ▼
+   │   AgentSession 實例                          📁 coding-agent/src/core/agent-session.ts
+   │     │ session.prompt(text) 時 emit:
+   │     │   • <strong>before_agent_start</strong> + input transforms
+   │     │   • <strong>system_prompt_assembled</strong> (重組 system prompt 時)
+   │     │   • <strong>compaction_check</strong> (每次 model 回應後)
+   │     │   • compaction_started / prepared / completed
+   │     │   • <strong>tool_call</strong> / tool_execution_update / <strong>tool_result</strong>
+   │     │   • <strong>assistant_message_finalized</strong> (on message_end)
+   │     │   • model_switched / active_tools_changed
+   │     │   • session_reloaded
+   │     ▼
+   │   Agent (低階 loop)                          📁 agent/src/agent.ts
+   │
+   └─── 低階 SDK（只攔 HTTP 層 ⚠️ 我們沒裝 stage 事件）
+
+       new AgentHarness({...})                    📁 agent/src/harness/agent-harness.ts
+         │ ── ✅ Cut 1 header (X-Trace-Id) 還在
+         │ ── ❌ 不會 emit 任何 JSONL stage 事件
+         ▼
+       Agent (低階 loop)
+</pre>
+      <p class="muted small">所以為什麼這頁那麼多細節？因為你的 <code>pi -p</code> CLI 走的是左邊那條：<code>createAgentSession()</code> → <code>AgentSession</code> → <code>session.prompt()</code>。每個 card 的 <code>source_module</code> 那行就是它對應上圖中的哪個檔案。</p>
+      <hr style="border:0;border-top:1px solid #d9dde3;margin:12px 0;">
       <p>下方時間線會依照這個結構出現。<strong>所有可能看到的 stage 都列在這裡</strong>——並不是每次都會出現全部，例如沒呼叫 tool 就不會有 Tool Execution round、沒觸發壓縮就不會有 Context Compaction round。</p>
       <pre class="flow-diagram" title="從上到下對照下方真實 cards：圖示中的階段名稱就是 cards 上的 badge 名稱">🛠 Session 啟動設定
   └ resource_loaded                          Pi 啟動時掃描的 skills、prompt templates、AGENTS.md
