@@ -114,6 +114,68 @@ def _shape_resource_loaded(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _stringify_args(args: Any) -> str:
+    if args is None:
+        return ""
+    if isinstance(args, str):
+        return args
+    try:
+        return json.dumps(args, ensure_ascii=False, indent=2)
+    except Exception:
+        return str(args)
+
+
+def _stringify_result(result: Any) -> str:
+    if result is None:
+        return ""
+    if isinstance(result, str):
+        return result
+    if isinstance(result, list):
+        parts: list[str] = []
+        for block in result:
+            if isinstance(block, dict):
+                t = block.get("type")
+                if t == "text" and isinstance(block.get("text"), str):
+                    parts.append(block["text"])
+                else:
+                    parts.append(json.dumps(block, ensure_ascii=False))
+            else:
+                parts.append(str(block))
+        return "\n".join(parts)
+    try:
+        return json.dumps(result, ensure_ascii=False, indent=2)
+    except Exception:
+        return str(result)
+
+
+def _shape_tool_call(payload: dict[str, Any]) -> dict[str, Any]:
+    args_text = _stringify_args(payload.get("args"))
+    preview, did_truncate = _truncate(args_text)
+    return {
+        "kind": "tool_call",
+        "tool_name": payload.get("tool_name"),
+        "tool_call_id": payload.get("tool_call_id"),
+        "args_preview": preview,
+        "args_truncated": did_truncate,
+        "args_full": args_text,
+    }
+
+
+def _shape_tool_result(payload: dict[str, Any]) -> dict[str, Any]:
+    result_text = _stringify_result(payload.get("result"))
+    preview, did_truncate = _truncate(result_text)
+    return {
+        "kind": "tool_result",
+        "tool_name": payload.get("tool_name"),
+        "tool_call_id": payload.get("tool_call_id"),
+        "is_error": bool(payload.get("is_error")),
+        "duration_ms": payload.get("duration_ms"),
+        "result_preview": preview,
+        "result_truncated": did_truncate,
+        "result_full": result_text,
+    }
+
+
 def _shape_before_provider_payload(payload: dict[str, Any]) -> dict[str, Any]:
     inner = payload.get("payload") if isinstance(payload, dict) else None
     summary = {}
@@ -134,6 +196,8 @@ SHAPERS = {
     "before_agent_start": _shape_before_agent_start,
     "resource_loaded": _shape_resource_loaded,
     "before_provider_payload": _shape_before_provider_payload,
+    "tool_call": _shape_tool_call,
+    "tool_result": _shape_tool_result,
 }
 
 

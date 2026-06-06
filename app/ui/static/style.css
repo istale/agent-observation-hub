@@ -141,3 +141,7 @@ details.agent-event-before_provider_payload { border-left-color: #d2691e; }
   max-height: 240px;
   overflow: auto;
 }
+details.agent-event-tool_call   { border-left-color: #c0392b; }
+details.agent-event-tool_result { border-left-color: #16a085; }
+.tool-err { background:#fbe2dd; color:#9d2a1c; padding:1px 6px; border-radius:3px; font-weight:700; font-size:11px; }
+.tool-ok  { background:#dff5ec; color:#0d6b4f; padding:1px 6px; border-radius:3px; font-size:11px; }

@@ -89,6 +89,18 @@
                 </ul>
               </details>
             {% endif %}
+          {% elif ev.view.kind == 'tool_call' %}
+            <p class="muted">tool: <code>{{ ev.view.tool_name }}</code> · id: <code>{{ ev.view.tool_call_id }}</code></p>
+            <pre class="readable">{{ ev.view.args_preview }}{% if ev.view.args_truncated %}…{% endif %}</pre>
+            {% if ev.view.args_truncated %}
+              <details><summary>Full args</summary><pre class="readable">{{ ev.view.args_full }}</pre></details>
+            {% endif %}
+          {% elif ev.view.kind == 'tool_result' %}
+            <p class="muted">tool: <code>{{ ev.view.tool_name }}</code> · id: <code>{{ ev.view.tool_call_id }}</code> · {% if ev.view.is_error %}<span class="tool-err">ERROR</span>{% else %}<span class="tool-ok">ok</span>{% endif %} · {{ ev.view.duration_ms }}ms</p>
+            <pre class="readable">{{ ev.view.result_preview }}{% if ev.view.result_truncated %}…{% endif %}</pre>
+            {% if ev.view.result_truncated %}
+              <details><summary>Full result</summary><pre class="readable">{{ ev.view.result_full }}</pre></details>
+            {% endif %}
           {% elif ev.view.kind == 'before_provider_payload' %}
             <p class="muted">model: <code>{{ ev.view.summary.model }}</code> · messages: {{ ev.view.summary.message_count }} · tools: {{ ev.view.summary.tool_count }} · temp: {{ ev.view.summary.temperature }} · stream: {{ ev.view.summary.stream }}</p>
             {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}">Open raw provider payload</a></p>{% endif %}
