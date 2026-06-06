@@ -62,16 +62,70 @@
     </p>
     <details class="help-block">
       <summary>各 stage 的意義（第一次來必看）</summary>
-      <ul>
-        <li><code>before_agent_start</code>：使用者按下送出的瞬間。<strong>raw_user_text</strong> 是使用者真實打的字；如果你 pin 了 constraint，<strong>effective_text</strong> 是 Pi 真正會處理的字。</li>
-        <li><code>resource_loaded</code>：Pi 啟動時掃描的 skills（額外能力包）、prompt templates（可重用的指令模板）、AGENTS.md（專案說明文件）清單。</li>
-        <li><code>before_provider_request</code>：Pi 準備呼叫 model 的一些 metadata（model id、message 數量、tool 數量、timeout）。</li>
-        <li><code>context</code>：Pi 內部 message 陣列、tool schema。<strong>這是「agent 自己以為要送什麼」的快照</strong>。</li>
-        <li><code>before_provider_payload</code>：經過 pi-ai provider adapter 改寫後、即將送出 HTTP 之前的完整 payload。<strong>這是「模型實際看到什麼」的快照</strong>。跟 context 比較就能看到 adapter 改了什麼。</li>
-        <li><code>tool_call</code>：model 決定要用 tool 了。args 是 model 給 tool 的參數。</li>
-        <li><code>tool_result</code>：tool 跑完了。包含 stdout / 是否失敗 / 花了幾 ms。</li>
-      </ul>
-      <p><strong>seq</strong> 是同一個 trace 內的序號（從 1 開始遞增），跟 timestamp 一起用可以確認順序。</p>
+      <p>下方時間線會依照這個結構出現。<strong>所有可能看到的 stage 都列在這裡</strong>——並不是每次都會出現全部，例如沒呼叫 tool 就不會有 Tool Execution round、沒觸發壓縮就不會有 Context Compaction round。</p>
+      <pre class="flow-diagram" title="從上到下對照下方真實 cards：圖示中的階段名稱就是 cards 上的 badge 名稱">🛠 Session 啟動設定
+  └ resource_loaded                          Pi 啟動時掃描的 skills、prompt templates、AGENTS.md
+                                             （session 共用，跟這次 prompt 沒直接關係）
+
+📜 對話流程 Turn Timeline
+
+👤 使用者輸入 ↓
+  ├ before_agent_start                       使用者按下送出的瞬間。raw_user_text=使用者真實打的字；
+  │                                          effective_text=pin 的 constraint 加上去後 Pi 真的看到的字
+  ├ extension_input_transformed (如有)        某個 extension 的 input hook 改寫了使用者文字
+  ├ slash_command_handled (如有)              使用者打的 /xxx 被 extension 攔截，沒進 LLM
+  ├ skill_command_expanded (如有)             /skill:name args 被展開成完整 invocation
+  ├ prompt_template_expanded (如有)           /template-name 被展開成完整模板
+  └ queued_steer / queued_followup (如有)     agent 正在 stream，新訊息進佇列
+
+🧱 System Prompt 組裝
+  └ system_prompt_assembled                  System prompt 的 component 級拆解：customPrompt /
+                                             default_template / AGENTS.md / skills / date / cwd，
+                                             每段都有來源 + 字數 + 佔比
+
+📦 Context Compaction (只有觸發時才會出現)
+  ├ compaction_check                         每次 model 回應後檢查。trigger=false 時也會記，
+  │                                          讓你看到「離壓縮還有多遠」
+  ├ compaction_started                       觸發了！reason=threshold/manual/overflow
+  ├ compaction_prepared                      將壓縮 N 個訊息，從 first_kept_entry_id 開始保留
+  └ compaction_completed                     壓縮完成，summary 全文（之後 model 看不到原訊息）
+
+🤖 Model Call #N
+  ├ before_provider_request                  Pi 準備呼叫 model（model id、message 數、tool 數、timeout）
+  ├ context                                  Pi 內部 message 陣列。<strong>agent 自己以為要送什麼</strong>
+  ├ convert_to_llm                           AgentMessage[] → LLM Message[]；role 直方圖、圖片過濾
+  ├ before_provider_payload                  經 pi-ai adapter 改寫後送 HTTP 的最終 payload。
+  │                                          <strong>model 實際看到什麼</strong>；附 Provider Adapter Diff（含 💡 解釋）
+  ├ model_response_meta                      HTTP status / latency / 上游 response headers
+  └ assistant_message_finalized              stop_reason / usage / cost / content block 結構
+
+🔧 Tool Execution (如有 tool call)
+  ├ tool_call                                model 要求呼叫的 tool 名稱 + args
+  ├ tool_execution_update (如 streaming)     長時間 tool 的中途快照（partial_result + elapsed_ms）
+  └ tool_result                              tool 跑完。is_error / error_kind / duration_ms / result
+
+⚙️ Session 狀態變化 (只有發生時才會出現)
+  ├ model_switched                           中途換 model（/model 指令或 setModel API）
+  ├ active_tools_changed                     開關 tool（added / removed 清單）
+  └ session_reloaded                         /reload 觸發 settings + resourceLoader 重載
+</pre>
+      <p><strong>怎麼用：</strong> 從上往下讀，每個 stage 都對應下方某張 card。看不懂某個欄位時，把滑鼠移到欄位名稱上會有 tooltip。</p>
+      <p><strong>seq</strong> 是同一個 trace 內的序號（從 1 開始遞增），跟 timestamp 一起用可以確認順序。<strong>trace_id</strong> 是一次 model 呼叫的識別碼；<strong>session_id</strong> 是一個 agent session 的識別碼（一個 session 通常包含多次 user turn 與多次 model 呼叫）。</p>
+      <details>
+        <summary>📖 維運者 debug 順序建議（10 步定位法）</summary>
+        <ol>
+          <li>使用者真的送了什麼？→ <code>before_agent_start.raw_user_text</code> + <code>extension_input_transformed</code></li>
+          <li>constraint 套了沒？→ <code>before_agent_start.applied_constraints</code> + <code>effective_text</code></li>
+          <li>system prompt 哪裡來的？→ <code>system_prompt_assembled.components</code> 看每段來源</li>
+          <li>context 是不是被 compaction 偷壓了？→ <code>compaction_check.trigger</code> + <code>compaction_completed.summary</code></li>
+          <li>model 看到什麼？→ <code>context</code> (per-message cards) + <code>before_provider_payload</code> (最終 HTTP body)</li>
+          <li>Adapter 改了什麼、為什麼？→ Provider Adapter Diff + 💡 解釋</li>
+          <li>Model 回了什麼、為什麼這樣回？→ <code>assistant_message_finalized.stop_reason</code> + content blocks + usage</li>
+          <li>API 真實狀態？→ <code>model_response_meta.status / latency / headers</code></li>
+          <li>Tool 跑了多久、失敗原因？→ <code>tool_result.error_kind</code> + <code>tool_execution_update</code></li>
+          <li>設定有改過嗎？→ Lifecycle round (<code>model_switched</code> / <code>active_tools_changed</code>)</li>
+        </ol>
+      </details>
     </details>
     {% if session_setup_events %}
     <h3 class="section-sub" title="這些事件是 Pi 啟動 session 那一瞬間做的事，跟使用者送的 prompt 沒有直接關係。一個 session 只會有一次。">🛠 Session 啟動設定
