@@ -236,3 +236,4 @@ details.stage-diff summary { cursor: pointer; }
   cursor:pointer; font-weight:700;
 }
 .delete-btn:hover { color:#7a1822; }
+.chip-diff { background:#fdf3df; border-color:#e8d2a5; }

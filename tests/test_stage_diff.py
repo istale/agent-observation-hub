@@ -1,7 +1,7 @@
 """Unit tests for stage_diff: provider-adapter diff computation."""
 from __future__ import annotations
 
-from app.stage_diff import compute_stage_diff
+from app.stage_diff import compute_stage_diff, diff_change_count
 
 
 def _ctx(messages, tools=None, **extra):
@@ -110,6 +110,23 @@ def test_alignment_handles_extra_pp_message_only_at_head():
     diff = compute_stage_diff(ctx, pp)
     kinds = [d["kind"] for d in diff["message_diffs"]]
     assert kinds == ["added", "unchanged", "unchanged"] or kinds == ["added", "modified", "modified"]
+
+
+def test_diff_change_count_sums_top_and_message_changes():
+    ctx = _ctx([{"role": "user", "content": "hi", "timestamp": 1}])
+    pp = _pp(
+        [{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}],
+        stream=True,
+    )
+    diff = compute_stage_diff(ctx, pp)
+    # 1 added message (system) + 1 modified message (timestamp stripped)
+    # + 2 top-level changes (stream added; model dict-vs-string)
+    assert diff_change_count(diff) == 4
+
+
+def test_diff_change_count_handles_none():
+    assert diff_change_count(None) == 0
+    assert diff_change_count({}) == 0
 
 
 def test_pure_pass_through_yields_no_changes():

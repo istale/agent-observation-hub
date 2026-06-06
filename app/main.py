@@ -75,12 +75,23 @@ def create_app() -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
+        from app.agent_event_views import _decode_payload  # local import to avoid cycle
+        from app.stage_diff import compute_stage_diff, diff_change_count
         repo = Repository.from_env()
         runs = repo.list_runs(100)
         session_ids = [r["session_id"] for r in runs if r.get("session_id") and r["session_id"] != "unknown"]
         stage_counts = repo.stage_counts_for_sessions(list({sid for sid in session_ids}))
         for r in runs:
             r["stage_counts"] = stage_counts.get(r.get("session_id"), {})
+            # Compute adapter diff count for the model call whose trace_id matches this run.
+            events = repo.list_agent_events(r["trace_id"])
+            ctx_ev = next((e for e in events if e["stage"] == "context"), None)
+            pp_ev = next((e for e in events if e["stage"] == "before_provider_payload"), None)
+            diff_count = 0
+            if ctx_ev and pp_ev:
+                diff = compute_stage_diff(_decode_payload(ctx_ev), _decode_payload(pp_ev))
+                diff_count = diff_change_count(diff)
+            r["diff_count"] = diff_count
         constraints = repo.list_pinned_constraints()
         return templates.TemplateResponse(request, "index.html", {"runs": runs, "constraints": constraints})
 

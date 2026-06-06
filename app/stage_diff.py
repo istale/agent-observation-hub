@@ -163,6 +163,17 @@ def _diff_tools(ctx: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def diff_change_count(diff: dict[str, Any] | None) -> int:
+    """Total count of meaningful changes in a diff (added/removed messages, modified messages, top-level changes)."""
+    if not diff:
+        return 0
+    count = len(diff.get("top_changes") or [])
+    for d in diff.get("message_diffs") or []:
+        if d.get("kind") in ("added", "removed", "modified"):
+            count += 1
+    return count
+
+
 def compute_stage_diff(context_payload: dict[str, Any] | None, before_provider_payload: dict[str, Any] | None) -> dict[str, Any] | None:
     if not context_payload or not before_provider_payload:
         return None

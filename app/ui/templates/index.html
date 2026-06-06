@@ -60,6 +60,7 @@
             {% if sc.get('resource_loaded') %}<span class="chip chip-res" title="resource loaded">📚</span>{% endif %}
             {% if sc.get('before_provider_payload') %}<span class="chip chip-llm" title="model calls">🤖 {{ sc.before_provider_payload }}</span>{% endif %}
             {% if sc.get('tool_call') %}<span class="chip chip-tool" title="tool calls">🔧 {{ sc.tool_call }}</span>{% endif %}
+            {% if run.diff_count %}<span class="chip chip-diff" title="provider-adapter changes (context → payload)">Δ {{ run.diff_count }}</span>{% endif %}
           </td>
         </tr>
       {% endfor %}
