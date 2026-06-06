@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Payload Diff {{ trace_id }}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="wide">
+    <p><a href="/traces/{{ trace_id }}">← back to trace</a></p>
+    <h1>Payload Diff <span class="muted small">{{ trace_id }}</span></h1>
+    {% if not ctx_json or not pp_json %}
+      <p class="muted">Both <code>context</code> and <code>before_provider_payload</code> events must exist for this trace to render a diff. Found: ctx={{ ctx_json is not none }}, pp={{ pp_json is not none }}.</p>
+    {% else %}
+      <p class="muted small">Left: <strong>context</strong> — what the agent has. Right: <strong>before_provider_payload</strong> — what the provider adapter built. Highlighted rows differ.</p>
+      <div class="diff-columns">
+        <div class="diff-col">
+          <h3>context</h3>
+          <pre class="json-pane">{% for line in ctx_lines %}<span class="json-line {{ line.cls }}">{{ line.text }}</span>
+{% endfor %}</pre>
+        </div>
+        <div class="diff-col">
+          <h3>before_provider_payload.payload</h3>
+          <pre class="json-pane">{% for line in pp_lines %}<span class="json-line {{ line.cls }}">{{ line.text }}</span>
+{% endfor %}</pre>
+        </div>
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>

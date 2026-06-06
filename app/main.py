@@ -95,6 +95,28 @@ def create_app() -> FastAPI:
         constraints = repo.list_pinned_constraints()
         return templates.TemplateResponse(request, "index.html", {"runs": runs, "constraints": constraints})
 
+    @app.get("/diff/{trace_id}", response_class=HTMLResponse)
+    def payload_diff_page(request: Request, trace_id: str):
+        from app.agent_event_views import _decode_payload
+        from app.payload_diff_view import diff_lines
+        repo = Repository.from_env()
+        events = repo.list_agent_events(trace_id)
+        ctx_ev = next((e for e in events if e["stage"] == "context"), None)
+        pp_ev = next((e for e in events if e["stage"] == "before_provider_payload"), None)
+        ctx_obj = _decode_payload(ctx_ev) if ctx_ev else None
+        pp_outer = _decode_payload(pp_ev) if pp_ev else None
+        pp_obj = pp_outer.get("payload") if isinstance(pp_outer, dict) else None
+        if ctx_obj is None or pp_obj is None:
+            return templates.TemplateResponse(request, "payload_diff.html", {
+                "trace_id": trace_id, "ctx_json": ctx_obj, "pp_json": pp_obj,
+                "ctx_lines": [], "pp_lines": [],
+            })
+        left, right = diff_lines(ctx_obj, pp_obj)
+        return templates.TemplateResponse(request, "payload_diff.html", {
+            "trace_id": trace_id, "ctx_json": ctx_obj, "pp_json": pp_obj,
+            "ctx_lines": left, "pp_lines": right,
+        })
+
     @app.get("/traces/{trace_id}", response_class=HTMLResponse)
     def trace_page(request: Request, trace_id: str):
         repo = Repository.from_env()

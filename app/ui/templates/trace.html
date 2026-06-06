@@ -107,7 +107,7 @@
             {% set diff = stage_diffs.get(ev.trace_id) %}
             {% if diff %}
               <details class="stage-diff" open>
-                <summary><strong>Provider Adapter Diff</strong> <span class="muted small">context ({{ diff.message_count.ctx }} msgs) → payload ({{ diff.message_count.pp }} msgs)</span></summary>
+                <summary><strong>Provider Adapter Diff</strong> <span class="muted small">context ({{ diff.message_count.ctx }} msgs) → payload ({{ diff.message_count.pp }} msgs)</span> <a href="/diff/{{ ev.trace_id }}" class="raw-diff-link">[open raw side-by-side ↗]</a></summary>
                 {% if diff.top_changes %}
                   <h4>Top-level field changes</h4>
                   <ul class="diff-list">
