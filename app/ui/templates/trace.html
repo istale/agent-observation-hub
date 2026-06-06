@@ -104,6 +104,57 @@
           {% elif ev.view.kind == 'before_provider_payload' %}
             <p class="muted">model: <code>{{ ev.view.summary.model }}</code> · messages: {{ ev.view.summary.message_count }} · tools: {{ ev.view.summary.tool_count }} · temp: {{ ev.view.summary.temperature }} · stream: {{ ev.view.summary.stream }}</p>
             {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}">Open raw provider payload</a></p>{% endif %}
+            {% set diff = stage_diffs.get(ev.trace_id) %}
+            {% if diff %}
+              <details class="stage-diff" open>
+                <summary><strong>Provider Adapter Diff</strong> <span class="muted small">context ({{ diff.message_count.ctx }} msgs) → payload ({{ diff.message_count.pp }} msgs)</span></summary>
+                {% if diff.top_changes %}
+                  <h4>Top-level field changes</h4>
+                  <ul class="diff-list">
+                    {% for c in diff.top_changes %}
+                      {% if c.kind == 'added' %}
+                        <li><span class="diff-add">+</span> <code>{{ c.key }}</code> = <code>{{ c.value | tojson | truncate(100) }}</code> <span class="muted small">added by adapter</span></li>
+                      {% elif c.kind == 'removed' %}
+                        <li><span class="diff-rem">−</span> <code>{{ c.key }}</code> <span class="muted small">stripped by adapter</span></li>
+                      {% else %}
+                        <li><span class="diff-chg">~</span> <code>{{ c.key }}</code>: <code>{{ c.ctx_value | tojson | truncate(60) }}</code> → <code>{{ c.pp_value | tojson | truncate(60) }}</code></li>
+                      {% endif %}
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+                <h4>Per-message changes</h4>
+                <table class="diff-table">
+                  <thead><tr><th>#</th><th>Context</th><th>→</th><th>Payload</th><th>Δ</th></tr></thead>
+                  <tbody>
+                    {% for d in diff.message_diffs %}
+                      <tr class="diff-row-{{ d.kind }}">
+                        <td class="muted">{{ d.position }}</td>
+                        <td>
+                          {% if d.ctx_role %}<span class="role-tag role-{{ d.ctx_role }}">{{ d.ctx_role }}</span>{% else %}<span class="muted">—</span>{% endif %}
+                          {% if d.ctx_preview %}<div class="muted small">{{ d.ctx_preview | truncate(80) }}</div>{% endif %}
+                        </td>
+                        <td class="muted">→</td>
+                        <td>
+                          {% if d.pp_role %}<span class="role-tag role-{{ d.pp_role }}">{{ d.pp_role }}</span>{% else %}<span class="muted">—</span>{% endif %}
+                          {% if d.pp_preview %}<div class="muted small">{{ d.pp_preview | truncate(80) }}</div>{% endif %}
+                        </td>
+                        <td>
+                          {% if d.kind == 'added' %}<span class="diff-add">ADDED</span>
+                          {% elif d.kind == 'removed' %}<span class="diff-rem">REMOVED</span>
+                          {% elif d.kind == 'modified' %}
+                            {% for ch in d.changes %}<div class="muted small">{{ ch }}</div>{% endfor %}
+                          {% else %}<span class="muted">—</span>{% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                {% if diff.tools.ctx_count != diff.tools.pp_count or diff.tools.wrapped_in_function_envelope %}
+                  <h4>Tools</h4>
+                  <p class="muted small">ctx: {{ diff.tools.ctx_count }} ({{ diff.tools.ctx_names | join(', ') }}) → payload: {{ diff.tools.pp_count }} ({{ diff.tools.pp_names | join(', ') }}){% if diff.tools.wrapped_in_function_envelope %} · adapter wrapped in <code>{type:"function", function:{...}}</code> envelope{% endif %}</p>
+                {% endif %}
+              </details>
+            {% endif %}
           {% else %}
             <pre class="readable">{{ ev.view.preview if ev.view.preview else (ev.payload_inline or '') }}</pre>
             {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}">{{ ev.payload_ref }}</a></p>{% endif %}

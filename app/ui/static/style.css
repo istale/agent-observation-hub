@@ -176,3 +176,45 @@ details.agent-event-tool_result::before {
   color: #888;
   font-weight: 700;
 }
+
+/* --- Stage Diff --- */
+details.stage-diff {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fdfaf3;
+  border: 1px solid #efe4c4;
+  border-radius: 6px;
+}
+details.stage-diff summary { cursor: pointer; }
+.diff-list { padding-left: 18px; margin: 6px 0; }
+.diff-list li { margin-bottom: 4px; font-size: 13px; }
+.diff-add { color: #1e7e34; font-weight: 700; }
+.diff-rem { color: #b02a37; font-weight: 700; }
+.diff-chg { color: #b8860b; font-weight: 700; }
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.diff-table th, .diff-table td {
+  border: 1px solid #e6e9eb;
+  padding: 4px 6px;
+  vertical-align: top;
+}
+.diff-table th { background: #f5f1e3; text-align: left; }
+.diff-row-added   { background: #f0faf2; }
+.diff-row-removed { background: #fdeeee; }
+.diff-row-modified { background: #fff8e4; }
+.role-tag {
+  font-family: monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #eef1f4;
+}
+.role-system     { background:#e9e9ec; }
+.role-user       { background:#dff5ec; }
+.role-assistant  { background:#e3edf6; }
+.role-tool, .role-toolResult { background:#f7e3dc; }

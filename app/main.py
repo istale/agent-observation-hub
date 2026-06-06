@@ -96,8 +96,25 @@ def create_app() -> FastAPI:
         if session_id and session_id != "unknown":
             session_events = repo.list_agent_events_by_session(session_id)
         from app.agent_event_views import enrich_events
+        from app.stage_diff import compute_stage_diff
         agent_events = enrich_events(agent_events)
+        session_events_raw = list(session_events)
         session_events = enrich_events(session_events)
+
+        # Compute provider-adapter diff per model-call trace_id (where both
+        # context and before_provider_payload exist for the same trace_id).
+        diffs_by_trace: dict[str, dict] = {}
+        from collections import defaultdict
+        by_trace: dict[str, dict[str, dict]] = defaultdict(dict)
+        for e in session_events:
+            by_trace[e["trace_id"]][e["stage"]] = e
+        for tid, stages in by_trace.items():
+            ctx_ev = stages.get("context")
+            pp_ev = stages.get("before_provider_payload")
+            if ctx_ev and pp_ev:
+                diff = compute_stage_diff(ctx_ev.get("payload"), pp_ev.get("payload"))
+                if diff:
+                    diffs_by_trace[tid] = diff
         return templates.TemplateResponse(request, "trace.html", {
             "trace_id": trace_id,
             "run": run,
@@ -109,6 +126,7 @@ def create_app() -> FastAPI:
             "agent_events": agent_events,
             "session_events": session_events,
             "session_id": session_id,
+            "stage_diffs": diffs_by_trace,
         })
 
     @app.get("/llm-calls/{llm_call_id}", response_class=HTMLResponse)
