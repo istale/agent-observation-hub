@@ -462,3 +462,12 @@ pre.compaction-summary {
 /* --- Cut 6c: model response events --- */
 details.agent-event-model_response_meta        { border-left-color: #4682b4; }
 details.agent-event-assistant_message_finalized { border-left-color: #2e8b57; }
+
+/* Cut 6e: input chain events — all under user_input round, no new round needed */
+details.agent-event-slash_command_handled,
+details.agent-event-extension_input_handled,
+details.agent-event-extension_input_transformed,
+details.agent-event-skill_command_expanded,
+details.agent-event-prompt_template_expanded,
+details.agent-event-queued_steer,
+details.agent-event-queued_followup { border-left-color: #2e8b57; }

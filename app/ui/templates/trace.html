@@ -221,7 +221,53 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'model_response_meta' %}
+          {% if ev.view.kind == 'slash_command_handled' %}
+            <p class="muted">
+              <span title="使用者打的 / 開頭指令被某個 extension 攔截，沒進 LLM">⛔ slash command 被攔截</span> · 原文: <code>{{ ev.view.text }}</code>
+            </p>
+            <p class="muted small">{{ ev.view.note }}</p>
+          {% elif ev.view.kind == 'extension_input_handled' %}
+            <p class="muted">
+              <span title="extension 的 input hook 全權處理了輸入，沒有送進 LLM">⛔ extension 攔截</span> · action: <code>{{ ev.view.action }}</code>
+            </p>
+            <p class="muted small">{{ ev.view.note }}</p>
+          {% elif ev.view.kind == 'extension_input_transformed' %}
+            <p class="muted">
+              <span title="extension 的 input hook 改寫了使用者文字">✏️ extension 改寫使用者輸入</span> · {{ ev.view.chars_before }} → {{ ev.view.chars_after }} chars · 圖片 {{ ev.view.image_count_before }} → {{ ev.view.image_count_after }}
+            </p>
+            <details><summary>改寫前後對照</summary>
+              <p class="muted small">改寫前：</p>
+              <pre class="readable">{{ ev.view.before_preview }}{% if ev.view.before_truncated %}…{% endif %}</pre>
+              <p class="muted small">改寫後：</p>
+              <pre class="readable">{{ ev.view.after_preview }}{% if ev.view.after_truncated %}…{% endif %}</pre>
+            </details>
+          {% elif ev.view.kind == 'skill_command_expanded' %}
+            <p class="muted">
+              <span title="/skill:name args 形式的指令被展開成完整 invocation">📘 skill 指令展開</span> · {{ ev.view.chars_before }} → {{ ev.view.chars_after }} chars
+            </p>
+            <details><summary>展開前後對照</summary>
+              <p class="muted small">展開前：</p>
+              <pre class="readable">{{ ev.view.before_preview }}{% if ev.view.before_truncated %}…{% endif %}</pre>
+              <p class="muted small">展開後：</p>
+              <pre class="readable">{{ ev.view.after_preview }}{% if ev.view.after_truncated %}…{% endif %}</pre>
+            </details>
+          {% elif ev.view.kind == 'prompt_template_expanded' %}
+            <p class="muted">
+              <span title="/template-name 形式的指令展開成完整模板">📝 prompt template 展開</span> · {{ ev.view.chars_before }} → {{ ev.view.chars_after }} chars
+            </p>
+            <details><summary>展開前後對照</summary>
+              <p class="muted small">展開前：</p>
+              <pre class="readable">{{ ev.view.before_preview }}{% if ev.view.before_truncated %}…{% endif %}</pre>
+              <p class="muted small">展開後：</p>
+              <pre class="readable">{{ ev.view.after_preview }}{% if ev.view.after_truncated %}…{% endif %}</pre>
+            </details>
+          {% elif ev.view.kind == 'queued_message' %}
+            <p class="muted">
+              <span title="agent 正在 streaming，使用者新訊息被加入 steer / followUp 佇列">📥 訊息被加入佇列</span> · {{ ev.view.chars }} chars · 圖片 {{ ev.view.image_count }}
+            </p>
+            <pre class="readable">{{ ev.view.text_preview }}{% if ev.view.text_truncated %}…{% endif %}</pre>
+            <p class="muted small">{{ ev.view.note }}</p>
+          {% elif ev.view.kind == 'model_response_meta' %}
             <p class="muted">
               <span title="上游 LLM 回應的 HTTP 狀態碼">HTTP</span>: <code>{{ ev.view.status }}</code> ·
               <span title="從送出 request 到第一個 response byte 的時間（含 hub gateway）">總延遲</span>: <strong>{{ ev.view.latency_ms }}ms</strong> ·

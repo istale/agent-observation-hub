@@ -137,6 +137,78 @@ def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_slash_command_handled(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "slash_command_handled",
+        "text": payload.get("text"),
+        "note": payload.get("note"),
+    }
+
+
+def _shape_extension_input_handled(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "extension_input_handled",
+        "action": payload.get("action"),
+        "note": payload.get("note"),
+    }
+
+
+def _shape_extension_input_transformed(payload: dict[str, Any]) -> dict[str, Any]:
+    before = payload.get("before_text") or ""
+    after = payload.get("after_text") or ""
+    bp, btr = _truncate(before)
+    ap, atr = _truncate(after)
+    return {
+        "kind": "extension_input_transformed",
+        "before_preview": bp, "before_truncated": btr, "before_full": before,
+        "after_preview": ap, "after_truncated": atr, "after_full": after,
+        "chars_before": payload.get("chars_before", len(before)),
+        "chars_after": payload.get("chars_after", len(after)),
+        "image_count_before": payload.get("image_count_before", 0),
+        "image_count_after": payload.get("image_count_after", 0),
+    }
+
+
+def _shape_skill_command_expanded(payload: dict[str, Any]) -> dict[str, Any]:
+    before = payload.get("before_text") or ""
+    after = payload.get("after_text") or ""
+    bp, btr = _truncate(before)
+    ap, atr = _truncate(after)
+    return {
+        "kind": "skill_command_expanded",
+        "before_preview": bp, "before_truncated": btr, "before_full": before,
+        "after_preview": ap, "after_truncated": atr, "after_full": after,
+        "chars_before": payload.get("chars_before", len(before)),
+        "chars_after": payload.get("chars_after", len(after)),
+    }
+
+
+def _shape_prompt_template_expanded(payload: dict[str, Any]) -> dict[str, Any]:
+    before = payload.get("before_text") or ""
+    after = payload.get("after_text") or ""
+    bp, btr = _truncate(before)
+    ap, atr = _truncate(after)
+    return {
+        "kind": "prompt_template_expanded",
+        "before_preview": bp, "before_truncated": btr, "before_full": before,
+        "after_preview": ap, "after_truncated": atr, "after_full": after,
+        "chars_before": payload.get("chars_before", len(before)),
+        "chars_after": payload.get("chars_after", len(after)),
+    }
+
+
+def _shape_queued_message(payload: dict[str, Any]) -> dict[str, Any]:
+    text = payload.get("text") or ""
+    preview, trunc = _truncate(text)
+    return {
+        "kind": "queued_message",
+        "text_preview": preview, "text_truncated": trunc, "text_full": text,
+        "chars": payload.get("chars", len(text)),
+        "image_count": payload.get("image_count", 0),
+        "note": payload.get("note"),
+    }
+
+
 def _shape_model_response_meta(payload: dict[str, Any]) -> dict[str, Any]:
     headers = payload.get("headers") or {}
     interesting = {}
@@ -356,6 +428,13 @@ SHAPERS = {
     "compaction_skipped": _shape_compaction_skipped,
     "model_response_meta": _shape_model_response_meta,
     "assistant_message_finalized": _shape_assistant_message_finalized,
+    "slash_command_handled": _shape_slash_command_handled,
+    "extension_input_handled": _shape_extension_input_handled,
+    "extension_input_transformed": _shape_extension_input_transformed,
+    "skill_command_expanded": _shape_skill_command_expanded,
+    "prompt_template_expanded": _shape_prompt_template_expanded,
+    "queued_steer": _shape_queued_message,
+    "queued_followup": _shape_queued_message,
 }
 
 
