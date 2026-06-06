@@ -481,3 +481,9 @@ details.agent-event-session_reloaded     { border-left-color: #6c757d; }
   border-left: 4px solid #ba55d3;
   color: #5e2e6f;
 }
+
+/* Cut 6g: convert_to_llm event */
+details.agent-event-convert_to_llm { border-left-color: #20b2aa; }
+
+/* Cut 6g: convert_to_llm event */
+details.agent-event-convert_to_llm { border-left-color: #20b2aa; }

@@ -137,6 +137,23 @@ def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_convert_to_llm(payload: dict[str, Any]) -> dict[str, Any]:
+    in_count = int(payload.get("input_message_count") or 0)
+    out_count = int(payload.get("output_message_count") or 0)
+    return {
+        "kind": "convert_to_llm",
+        "input_count": in_count,
+        "output_count": out_count,
+        "count_delta": out_count - in_count,
+        "in_roles": payload.get("input_role_histogram") or {},
+        "out_roles": payload.get("output_role_histogram") or {},
+        "image_count_before": int(payload.get("image_count_before") or 0),
+        "image_count_after": int(payload.get("image_count_after") or 0),
+        "images_filtered": int(payload.get("images_filtered") or 0),
+        "block_images_enabled": bool(payload.get("block_images_enabled")),
+    }
+
+
 def _shape_model_switched(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "kind": "model_switched",
@@ -467,6 +484,7 @@ SHAPERS = {
     "model_switched": _shape_model_switched,
     "active_tools_changed": _shape_active_tools_changed,
     "session_reloaded": _shape_session_reloaded,
+    "convert_to_llm": _shape_convert_to_llm,
 }
 
 

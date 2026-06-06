@@ -227,7 +227,34 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'model_switched' %}
+          {% if ev.view.kind == 'convert_to_llm' %}
+            <p class="muted">
+              <span title="把 agent 內部的 AgentMessage 陣列轉成 LLM provider 用的 Message 陣列。這層發生在 context 事件之前。">🔄 convertToLlm</span> ·
+              {{ ev.view.input_count }} → {{ ev.view.output_count }} 訊息
+              {% if ev.view.count_delta != 0 %}<span class="tool-err" title="輸入輸出數量不一致——可能是訊息被合併或拆分">Δ {{ ev.view.count_delta }}</span>{% endif %}
+              {% if ev.view.images_filtered > 0 %} · <span title="settings.blockImages=true，{{ ev.view.images_filtered }} 張圖被換成 'Image reading is disabled.' 文字">圖片過濾</span>: {{ ev.view.images_filtered }} 張</span>{% endif %}
+            </p>
+            <details><summary>角色分佈對照</summary>
+              <table class="diff-table">
+                <thead><tr><th>角色</th><th title="agent 內部訊息陣列裡的數量">輸入</th><th title="轉換後給 LLM 的訊息陣列裡的數量">輸出</th><th>差異</th></tr></thead>
+                <tbody>
+                  {% set all_roles = ev.view.in_roles.keys() | list + (ev.view.out_roles.keys() | list) %}
+                  {% set unique_roles = all_roles | unique | list %}
+                  {% for r in unique_roles %}
+                    {% set in_n = ev.view.in_roles.get(r, 0) %}
+                    {% set out_n = ev.view.out_roles.get(r, 0) %}
+                    <tr>
+                      <td><span class="role-tag role-{{ r }}">{{ r }}</span></td>
+                      <td>{{ in_n }}</td>
+                      <td>{{ out_n }}</td>
+                      <td>{% if in_n != out_n %}<span class="tool-err">{{ out_n - in_n }}</span>{% else %}—{% endif %}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <p class="muted small">block_images 設定: {% if ev.view.block_images_enabled %}<code>true</code>（圖片會被過濾）{% else %}<code>false</code>{% endif %}</p>
+            </details>
+          {% elif ev.view.kind == 'model_switched' %}
             <p class="muted">
               <span title="使用者中途切換 model（/model 指令或 setModel API），後續呼叫會打新 model">🔁 切換 model</span>:
               {% if ev.view.from_provider %}<code>{{ ev.view.from_provider }}/{{ ev.view.from_id }}</code>{% else %}<span class="muted">(初始)</span>{% endif %}
