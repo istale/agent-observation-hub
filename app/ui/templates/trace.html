@@ -25,6 +25,84 @@
       {% endfor %}
       </tbody>
     </table>
+    <h2>Agent Events {% if session_id %}<span class="muted small">session {{ session_id }}</span>{% endif %}</h2>
+    {% set merged = (session_events or []) %}
+    {% if merged %}
+    <div class="stack">
+      {% for ev in merged %}
+        <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
+          <summary>
+            <span class="badge">{{ ev.stage }}</span>
+            <span class="muted small">seq {{ ev.event_seq }}</span>
+            <span class="muted small">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
+            <span class="muted small">{{ ev.source_module or '' }}</span>
+          </summary>
+          {% if ev.view.kind == 'before_agent_start' %}
+            <p class="muted">source: {{ ev.view.source }} · image_count: {{ ev.view.image_count }}</p>
+            <pre class="readable">{{ ev.view.user_text_preview }}{% if ev.view.user_text_truncated %}…{% endif %}</pre>
+            {% if ev.view.user_text_truncated %}
+              <details><summary>Full user text</summary><pre class="readable">{{ ev.view.user_text_full }}</pre></details>
+            {% endif %}
+          {% elif ev.view.kind == 'resource_loaded' %}
+            <p class="muted">cwd: <code>{{ ev.view.cwd }}</code> · agentDir: <code>{{ ev.view.agent_dir }}</code></p>
+            {% if ev.view.skills %}
+            <h4>Skills ({{ ev.view.skills | length }})</h4>
+            <ul class="resource-list">
+              {% for s in ev.view.skills %}
+                <li><strong>{{ s.name }}</strong> <span class="muted small">{{ s.filePath }}</span><br><span class="muted">{{ s.description }}</span></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if ev.view.prompt_templates %}
+            <h4>Prompt Templates ({{ ev.view.prompt_templates | length }})</h4>
+            <ul class="resource-list">
+              {% for p in ev.view.prompt_templates %}
+                <li><strong>{{ p.name }}</strong> <span class="muted small">{{ p.filePath }}</span><br><span class="muted">{{ p.description }}</span></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            {% if ev.view.agents_files %}
+            <h4>AGENTS.md ({{ ev.view.agents_files | length }})</h4>
+            <ul class="resource-list">
+              {% for f in ev.view.agents_files %}
+                <li><code>{{ f.path }}</code> <span class="muted small">{{ f.content_length }} chars</span></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          {% elif ev.view.kind == 'context' %}
+            <p class="muted">model: <code>{{ ev.view.model.id if ev.view.model else '?' }}</code> · messages: {{ ev.view.message_count }} · tools: {{ ev.view.tool_count }}</p>
+            <div class="message-cards">
+              {% for m in ev.view.messages %}
+                <div class="msg msg-{{ m.role }}">
+                  <div class="msg-head"><span class="role">{{ m.role }}</span><span class="muted small">#{{ m.index }}</span></div>
+                  <pre class="msg-body readable">{{ m.preview }}{% if m.truncated %}…{% endif %}</pre>
+                  {% if m.truncated %}
+                    <details><summary>Full content</summary><pre class="readable">{{ m.full_text }}</pre></details>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+            {% if ev.view.tools %}
+              <details><summary>Tools sent to model ({{ ev.view.tool_count }})</summary>
+                <ul class="resource-list">
+                  {% for t in ev.view.tools %}<li><strong>{{ t.name }}</strong> <span class="muted">{{ t.description }}</span></li>{% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+          {% elif ev.view.kind == 'before_provider_payload' %}
+            <p class="muted">model: <code>{{ ev.view.summary.model }}</code> · messages: {{ ev.view.summary.message_count }} · tools: {{ ev.view.summary.tool_count }} · temp: {{ ev.view.summary.temperature }} · stream: {{ ev.view.summary.stream }}</p>
+            {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}">Open raw provider payload</a></p>{% endif %}
+          {% else %}
+            <pre class="readable">{{ ev.view.preview if ev.view.preview else (ev.payload_inline or '') }}</pre>
+            {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}">{{ ev.payload_ref }}</a></p>{% endif %}
+          {% endif %}
+        </details>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No agent events captured for this session.</p>
+    {% endif %}
+
     <h2>LLM Calls</h2>
     <p class="muted">Payload mode: {{ payload_mode }}</p>
     <div class="stack">

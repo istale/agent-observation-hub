@@ -64,3 +64,8 @@ async def ingest_agent_event(request: Request) -> dict[str, Any]:
 @router.get("/api/traces/{trace_id}/agent-events")
 def list_agent_events(trace_id: str) -> dict[str, Any]:
     return {"agent_events": Repository.from_env().list_agent_events(trace_id)}
+
+
+@router.get("/api/sessions/{session_id}/agent-events")
+def list_agent_events_by_session(session_id: str, limit: int = 200) -> dict[str, Any]:
+    return {"agent_events": Repository.from_env().list_agent_events_by_session(session_id, limit)}

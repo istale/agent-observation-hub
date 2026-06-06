@@ -79,3 +79,65 @@ details.llm-call-detail summary {
   gap: 10px;
   font-weight: 700;
 }
+
+/* --- Agent Events --- */
+details.agent-event {
+  background: #fafbfc;
+  border: 1px solid #dce1e4;
+  border-left: 4px solid #888;
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+details.agent-event[open] { background: white; }
+details.agent-event summary {
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+details.agent-event-before_agent_start { border-left-color: #2e8b57; }
+details.agent-event-resource_loaded     { border-left-color: #b8860b; }
+details.agent-event-before_provider_request { border-left-color: #4682b4; }
+details.agent-event-context             { border-left-color: #6a5acd; }
+details.agent-event-before_provider_payload { border-left-color: #d2691e; }
+
+.badge {
+  background: #eef1f4;
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 12px;
+}
+.muted.small { font-size: 11px; }
+
+.resource-list { padding-left: 18px; }
+.resource-list li { margin-bottom: 6px; }
+
+.message-cards { display: grid; gap: 8px; margin: 8px 0; }
+.msg {
+  border: 1px solid #e1e5e8;
+  border-radius: 5px;
+  background: #fff;
+  padding: 8px 10px;
+}
+.msg-system    { border-left: 3px solid #6c757d; }
+.msg-user      { border-left: 3px solid #2e8b57; }
+.msg-assistant { border-left: 3px solid #4682b4; }
+.msg-toolResult, .msg-tool { border-left: 3px solid #d2691e; }
+.msg-head {
+  display: flex; gap: 8px; align-items: baseline;
+  font-size: 11px; margin-bottom: 4px;
+}
+.msg-head .role {
+  font-family: monospace; font-weight: 700;
+  text-transform: uppercase;
+}
+.msg-body {
+  margin: 0;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow: auto;
+}

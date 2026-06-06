@@ -84,14 +84,26 @@ def create_app() -> FastAPI:
         for call in llm_calls:
             _, response_view = _load_call_payloads(call)
             call_views.append({"call": call, "response_view": response_view})
+        run = repo.get_trace_run(trace_id)
+        agent_events = repo.list_agent_events(trace_id)
+        session_events: list[dict[str, object]] = []
+        session_id = (run or {}).get("session_id") if run else None
+        if session_id and session_id != "unknown":
+            session_events = repo.list_agent_events_by_session(session_id)
+        from app.agent_event_views import enrich_events
+        agent_events = enrich_events(agent_events)
+        session_events = enrich_events(session_events)
         return templates.TemplateResponse(request, "trace.html", {
             "trace_id": trace_id,
-            "run": repo.get_trace_run(trace_id),
+            "run": run,
             "events": repo.list_events(trace_id),
             "llm_calls": llm_calls,
             "call_views": call_views,
             "correlations": repo.list_external_ids_for_trace(trace_id),
             "payload_mode": current_payload_mode(),
+            "agent_events": agent_events,
+            "session_events": session_events,
+            "session_id": session_id,
         })
 
     @app.get("/llm-calls/{llm_call_id}", response_class=HTMLResponse)

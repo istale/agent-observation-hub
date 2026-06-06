@@ -242,6 +242,14 @@ class Repository:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def list_agent_events_by_session(self, session_id: str, limit: int = 200) -> list[dict[str, Any]]:
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM agent_events WHERE session_id = ? ORDER BY ts ASC, id ASC LIMIT ?",
+                (session_id, limit),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def get_llm_call(self, llm_call_id: str) -> dict[str, Any] | None:
         with db_connection(self.db_path) as conn:
             return _row(conn.execute("SELECT * FROM llm_calls WHERE llm_call_id = ?", (llm_call_id,)).fetchone())
