@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <title>Agent Observation Hub</title>
@@ -8,25 +8,49 @@
 <body>
   <main>
     <h1>Agent Observation Hub</h1>
+    <p class="help-section-intro">
+      這是 Pi coding agent 的觀測平台。每次你跟 Pi 對話，整個內部組裝過程（讀取 skills、組 system prompt、呼叫 LLM、執行 tool、拿結果再呼叫一次 LLM）都會被記錄在這裡，讓你可以「看到模型實際看到什麼」，而不是只看到回應。
+    </p>
+    <details class="help-block">
+      <summary>第一次來？看這裡</summary>
+      <p><strong>名詞速查：</strong></p>
+      <ul>
+        <li><strong>trace</strong>：一次 LLM 呼叫的完整紀錄（含 request / response / 延遲 / 用了多少 token）</li>
+        <li><strong>session</strong>：一個 Pi agent 啟動後的整段互動（一個 session 通常包含很多 trace）</li>
+        <li><strong>stage</strong>：agent 處理一個 user 訊息時經歷的步驟（例如載入 resources、組 context、呼叫模型、執行 tool）</li>
+        <li><strong>provider adapter</strong>：pi-ai 套件裡負責把 agent 的內部訊息格式轉成各家 LLM API 認得格式的元件</li>
+        <li><strong>pinned constraint</strong>：你 pin 起來的規則，會自動加到每一次 user prompt 的最前面</li>
+      </ul>
+      <p><strong>建議入門路徑：</strong></p>
+      <ul>
+        <li>1️⃣ 看下方表格，找一個有 🔧 標記的 trace（代表那次有用 tool）</li>
+        <li>2️⃣ 點進去，從上到下看 Agent Events 區塊就是完整的推理流程</li>
+        <li>3️⃣ 找一個 Provider Adapter Diff 區塊，看看模型實際收到的內容跟 agent 內部存的差多少</li>
+      </ul>
+    </details>
 
-    <h2>Pinned Constraints</h2>
-    <p class="muted small">Rules injected into every pi prompt. Pi reads <code>~/.pi/observation/constraints.json</code> at turn start.</p>
+    <h2>Pinned Constraints
+      <span class="help-inline" title="你 pin 的規則會自動加到每次 Pi prompt 的最前面，等於是『專案永久指示』，不用每次重複交代">ⓘ</span>
+    </h2>
+    <p class="help-section-intro">
+      在這裡 pin 的規則會被 Pi 在每一次使用者輸入的最前面自動注入，等於「告訴 Pi 永久遵守」。Pi 啟動每一輪時會讀取 <code>~/.pi/observation/constraints.json</code>，不需要重啟。
+    </p>
     <form id="constraint-form" class="constraint-form" onsubmit="addConstraint(event)">
-      <input type="text" id="constraint-text" placeholder="e.g. prefer agentic grep over vector RAG" required>
-      <button type="submit">Pin</button>
+      <input type="text" id="constraint-text" placeholder="例如：優先用 grep 而不是向量搜尋" required>
+      <button type="submit" title="把這條規則加入並立即生效，下一輪 Pi 對話就會看到">Pin 起來</button>
     </form>
     {% if constraints %}
       <ul class="constraint-list">
         {% for c in constraints %}
           <li>
             <span class="constraint-text">{{ c.text }}</span>
-            <span class="muted small">{{ c.created_at }}</span>
-            <button class="delete-btn" onclick="deleteConstraint('{{ c.id }}')">×</button>
+            <span class="muted small" title="這條規則被 pin 起來的時間">{{ c.created_at }}</span>
+            <button class="delete-btn" onclick="deleteConstraint('{{ c.id }}')" title="移除這條規則，下一輪 Pi 對話就不會再注入">×</button>
           </li>
         {% endfor %}
       </ul>
     {% else %}
-      <p class="muted">No constraints pinned. Add one above to inject project-level rules into pi.</p>
+      <p class="muted">目前沒有 pin 任何規則。輸入一條規則並按下「Pin 起來」，下一輪 Pi 就會自動套用。</p>
     {% endif %}
     <script>
       async function addConstraint(e) {
@@ -38,29 +62,52 @@
         else alert('failed: ' + await resp.text());
       }
       async function deleteConstraint(id) {
-        if (!confirm('Remove this constraint?')) return;
+        if (!confirm('確定要移除這條規則嗎？')) return;
         const resp = await fetch('/api/constraints/' + id, { method: 'DELETE' });
         if (resp.ok) location.reload();
       }
     </script>
 
-    <h2>Recent Trace Runs</h2>
+    <h2>最近的 LLM 呼叫紀錄 (Recent Trace Runs)
+      <span class="help-inline" title="每一個 row 是一次 model 呼叫。stages 欄位的 chip 是這個 model 呼叫所屬 session 的事件統計。">ⓘ</span>
+    </h2>
+    <p class="help-section-intro">
+      每一個 row 代表 Pi 對 LLM 發起的一次呼叫。<strong>Stages</strong> 欄的圖示是這次呼叫所屬 <em>session</em> 的整體事件統計，幫你一眼看出哪些 session 有用 tool、改動多。
+    </p>
+    <details class="help-block">
+      <summary>Stages 圖示說明</summary>
+      <ul>
+        <li><span class="chip chip-prompt">👤 N</span> 這個 session 收到過 <strong>N 次使用者輸入</strong>（before_agent_start 事件數）</li>
+        <li><span class="chip chip-res">📚</span> 這個 session 在啟動時<strong>載入過資源</strong>（skills / prompt templates / AGENTS.md）</li>
+        <li><span class="chip chip-llm">🤖 N</span> 這個 session 對 LLM 發起過 <strong>N 次呼叫</strong>（一次使用者輸入可能觸發多次 LLM 呼叫，例如使用者問 → model 想用 tool → tool 跑完 → model 再看結果回答，這樣就是 2 次）</li>
+        <li><span class="chip chip-tool">🔧 N</span> 這個 session 觸發過 <strong>N 次 tool 呼叫</strong>（read / bash / edit / write 等）</li>
+        <li><span class="chip chip-diff">Δ N</span> 這次 LLM 呼叫的 provider adapter <strong>改了 N 個地方</strong>（context 跟 payload 不一致的程度）</li>
+      </ul>
+    </details>
     <table>
-      <thead><tr><th>Started</th><th>Trace</th><th>Status</th><th>Agent</th><th>Stages</th></tr></thead>
+      <thead>
+        <tr>
+          <th title="這次 LLM 呼叫開始的時間（台北時區）">開始時間</th>
+          <th title="Trace ID — 一次 model 呼叫的唯一識別碼。點下去可以看到完整 timeline。">Trace</th>
+          <th title="ok = 成功；error = upstream provider 回錯誤；running = 還沒結束">Status</th>
+          <th title="這次呼叫的 agent 名稱（pi = 我們 fork 的 Pi coding agent）">Agent</th>
+          <th title="這個 session 的事件統計圖示，滑鼠移到 chip 看詳情">Stages</th>
+        </tr>
+      </thead>
       <tbody>
       {% for run in runs %}
         <tr>
           <td class="muted small">{{ run.started_at | taipei_time }}</td>
-          <td><a href="/traces/{{ run.trace_id }}">{{ run.trace_id[:18] }}…</a></td>
+          <td><a href="/traces/{{ run.trace_id }}" title="點進去看這次 LLM 呼叫的所有 stage 與 provider adapter diff">{{ run.trace_id[:18] }}…</a></td>
           <td>{{ run.status }}</td>
           <td>{{ run.agent_id }}</td>
           <td class="stage-chips">
             {% set sc = run.stage_counts or {} %}
-            {% if sc.get('before_agent_start') %}<span class="chip chip-prompt" title="user turns">👤 {{ sc.before_agent_start }}</span>{% endif %}
-            {% if sc.get('resource_loaded') %}<span class="chip chip-res" title="resource loaded">📚</span>{% endif %}
-            {% if sc.get('before_provider_payload') %}<span class="chip chip-llm" title="model calls">🤖 {{ sc.before_provider_payload }}</span>{% endif %}
-            {% if sc.get('tool_call') %}<span class="chip chip-tool" title="tool calls">🔧 {{ sc.tool_call }}</span>{% endif %}
-            {% if run.diff_count %}<span class="chip chip-diff" title="provider-adapter changes (context → payload)">Δ {{ run.diff_count }}</span>{% endif %}
+            {% if sc.get('before_agent_start') %}<span class="chip chip-prompt" title="這個 session 共收到 {{ sc.before_agent_start }} 次使用者輸入">👤 {{ sc.before_agent_start }}</span>{% endif %}
+            {% if sc.get('resource_loaded') %}<span class="chip chip-res" title="這個 session 啟動時載入過 skills / prompt templates / AGENTS.md">📚</span>{% endif %}
+            {% if sc.get('before_provider_payload') %}<span class="chip chip-llm" title="這個 session 對 LLM 發起過 {{ sc.before_provider_payload }} 次呼叫">🤖 {{ sc.before_provider_payload }}</span>{% endif %}
+            {% if sc.get('tool_call') %}<span class="chip chip-tool" title="這個 session 觸發過 {{ sc.tool_call }} 次 tool 呼叫（read/bash/edit/write 等）">🔧 {{ sc.tool_call }}</span>{% endif %}
+            {% if run.diff_count %}<span class="chip chip-diff" title="這次 LLM 呼叫的 provider adapter 跟 agent 內部 context 比，有 {{ run.diff_count }} 個改動（加 system / strip metadata / 換 role 等）">Δ {{ run.diff_count }}</span>{% endif %}
           </td>
         </tr>
       {% endfor %}

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <title>Trace {{ trace_id }}</title>
@@ -7,11 +7,34 @@
 </head>
 <body>
   <main>
-    <p><a href="/">Home</a></p>
-    <h1>Trace {{ trace_id }}</h1>
-    <h2>Timeline</h2>
+    <p><a href="/">← 回首頁</a></p>
+    <h1>Trace <span class="muted small" title="這是一次 LLM 呼叫的識別碼，由 Pi 端產生並透過 X-Trace-Id header 傳到 hub">{{ trace_id }}</span></h1>
+    <p class="help-section-intro">
+      這個頁面顯示一次 LLM 呼叫的完整紀錄，以及這次呼叫所屬 session 裡的所有事件。最重要的區塊是下方的 <strong>Agent Events</strong>——它把 Pi 從「收到使用者輸入」到「決定呼叫哪個 model」之間的每一步都記下來。
+    </p>
+    <details class="help-block">
+      <summary>怎麼看這個頁面？</summary>
+      <p><strong>從上往下看：</strong></p>
+      <ul>
+        <li><strong>Timeline</strong>：hub gateway 自己記錄的高階事件（llm_request / llm_response）</li>
+        <li><strong>Agent Events</strong>（重點區）：Pi 內部組裝過程的詳細事件——使用者打字 → 載入 resources → 組 context → 呼叫 model → 跑 tool → 再呼叫 model</li>
+        <li><strong>LLM Calls</strong>：hub 攔截到的 HTTP request/response 原文</li>
+        <li><strong>Correlations</strong>：跨系統的 ID 對應（trace_id、session_id 等）</li>
+      </ul>
+    </details>
+    <h2>Timeline
+      <span class="help-inline" title="這是 hub gateway 自己記錄的高階事件，主要是 llm_request / llm_response 的時間點。詳細的 agent 內部步驟看下方 Agent Events。">ⓘ</span>
+    </h2>
+    <p class="help-section-intro">Hub 收到 LLM 呼叫時記錄的高階事件。詳細推理流程請看下方 Agent Events 區。</p>
     <table>
-      <thead><tr><th>Timestamp</th><th>Event Type</th><th>Source</th><th>Status</th><th>Severity</th><th>Payload</th></tr></thead>
+      <thead><tr>
+        <th title="事件時間（台北時區）">時間</th>
+        <th title="事件類型（llm_request = 收到請求；llm_response = 上游回完了）">Event Type</th>
+        <th title="事件來源（通常是 gateway）">Source</th>
+        <th title="ok / error">Status</th>
+        <th title="info / warning / error">Severity</th>
+        <th title="如果有大型 payload 被寫到檔案，這裡是路徑">Payload</th>
+      </tr></thead>
       <tbody>
       {% for event in events %}
         <tr>
@@ -25,28 +48,58 @@
       {% endfor %}
       </tbody>
     </table>
-    <h2>Agent Events {% if session_id %}<span class="muted small">session {{ session_id }}</span>{% endif %}</h2>
+    <h2>Agent Events
+      <span class="help-inline" title="Pi agent runtime 內部發出的事件流，按時間順序排列。可以重現一次使用者輸入 → 模型回應的完整推理過程。">ⓘ</span>
+      {% if session_id %}<span class="muted small" title="這是 Pi agent session 的識別碼。一個 session 可能包含多次使用者輸入與多次 model 呼叫，都會聚合在同一頁顯示。">session {{ session_id }}</span>{% endif %}
+    </h2>
+    <p class="help-section-intro">
+      下方按時間順序顯示 Pi 從使用者輸入到 model 回應之間經歷的每個 <strong>stage</strong>。每一個 stage 都是 Pi 內部一個函式邊界的快照。色塊代表事件分類：
+      <span class="badge agent-event-before_agent_start" style="border-left:3px solid #2e8b57; padding-left:6px;">使用者輸入</span>
+      <span class="badge agent-event-resource_loaded" style="border-left:3px solid #b8860b; padding-left:6px;">資源載入</span>
+      <span class="badge agent-event-context" style="border-left:3px solid #6a5acd; padding-left:6px;">送給模型前</span>
+      <span class="badge agent-event-tool_call" style="border-left:3px solid #c0392b; padding-left:6px;">tool 呼叫</span>
+      <span class="badge agent-event-tool_result" style="border-left:3px solid #16a085; padding-left:6px;">tool 結果</span>
+    </p>
+    <details class="help-block">
+      <summary>各 stage 的意義（第一次來必看）</summary>
+      <ul>
+        <li><code>before_agent_start</code>：使用者按下送出的瞬間。<strong>raw_user_text</strong> 是使用者真實打的字；如果你 pin 了 constraint，<strong>effective_text</strong> 是 Pi 真正會處理的字。</li>
+        <li><code>resource_loaded</code>：Pi 啟動時掃描的 skills（額外能力包）、prompt templates（可重用的指令模板）、AGENTS.md（專案說明文件）清單。</li>
+        <li><code>before_provider_request</code>：Pi 準備呼叫 model 的一些 metadata（model id、message 數量、tool 數量、timeout）。</li>
+        <li><code>context</code>：Pi 內部 message 陣列、tool schema。<strong>這是「agent 自己以為要送什麼」的快照</strong>。</li>
+        <li><code>before_provider_payload</code>：經過 pi-ai provider adapter 改寫後、即將送出 HTTP 之前的完整 payload。<strong>這是「模型實際看到什麼」的快照</strong>。跟 context 比較就能看到 adapter 改了什麼。</li>
+        <li><code>tool_call</code>：model 決定要用 tool 了。args 是 model 給 tool 的參數。</li>
+        <li><code>tool_result</code>：tool 跑完了。包含 stdout / 是否失敗 / 花了幾 ms。</li>
+      </ul>
+      <p><strong>seq</strong> 是同一個 trace 內的序號（從 1 開始遞增），跟 timestamp 一起用可以確認順序。</p>
+    </details>
     {% set merged = (session_events or []) %}
     {% if merged %}
     <div class="stack">
       {% for ev in merged %}
         <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
           <summary>
-            <span class="badge">{{ ev.stage }}</span>
-            <span class="muted small">seq {{ ev.event_seq }}</span>
-            <span class="muted small">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
-            <span class="muted small">{{ ev.source_module or '' }}</span>
+            <span class="badge" title="這是 stage 名稱。before_agent_start = 收到使用者輸入；resource_loaded = 載入 skills/templates；context = 即將送給模型的 message 陣列；before_provider_payload = adapter 改寫後的最終 payload；tool_call / tool_result = 工具呼叫前後。">{{ ev.stage }}</span>
+            <span class="muted small" title="這個事件在當前 trace 內的序號（從 1 開始）。同一個 trace_id 裡 seq 越小越早發生。">seq {{ ev.event_seq }}</span>
+            <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
+            <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
           {% if ev.view.kind == 'before_agent_start' %}
-            <p class="muted">source: {{ ev.view.source }} · image_count: {{ ev.view.image_count }}</p>
+            <p class="muted" title="source = 這次 prompt 從哪裡來（interactive = TUI 互動；extension = 由 extension 觸發；print = 從 -p 參數）；image_count = 同一輪附帶了幾張圖">
+              來源: <code>{{ ev.view.source }}</code> · 附圖數: {{ ev.view.image_count }}
+            </p>
+            <p class="muted small">下方是使用者實際打的字（如果有 pin constraint，會被加在原文前面，但這裡顯示的是原文）：</p>
             <pre class="readable">{{ ev.view.user_text_preview }}{% if ev.view.user_text_truncated %}…{% endif %}</pre>
             {% if ev.view.user_text_truncated %}
-              <details><summary>Full user text</summary><pre class="readable">{{ ev.view.user_text_full }}</pre></details>
+              <details><summary>展開完整使用者輸入</summary><pre class="readable">{{ ev.view.user_text_full }}</pre></details>
             {% endif %}
           {% elif ev.view.kind == 'resource_loaded' %}
-            <p class="muted">cwd: <code>{{ ev.view.cwd }}</code> · agentDir: <code>{{ ev.view.agent_dir }}</code></p>
+            <p class="muted">
+              <span title="Pi 啟動時的工作目錄（agent 執行 bash / read 等預設相對於這裡）">cwd</span>: <code>{{ ev.view.cwd }}</code> ·
+              <span title="Pi 用來放 agent 設定的目錄，預設 ~/.pi/agent">agentDir</span>: <code>{{ ev.view.agent_dir }}</code>
+            </p>
             {% if ev.view.skills %}
-            <h4>Skills ({{ ev.view.skills | length }})</h4>
+            <h4 title="Skills 是 Pi 的擴充能力包（按 Agent Skills 規範）。每個 skill 是一個 SKILL.md，描述「做什麼任務時應該載入」。Pi 只把 name+description 放進 context，需要時才完整載入。">Skills ({{ ev.view.skills | length }}) <span class="help-inline" title="這些是 Pi 知道的 skill；但只有當使用者任務描述匹配時才會真正展開讀取">ⓘ</span></h4>
             <ul class="resource-list">
               {% for s in ev.view.skills %}
                 <li><strong>{{ s.name }}</strong> <span class="muted small">{{ s.filePath }}</span><br><span class="muted">{{ s.description }}</span></li>
@@ -54,7 +107,7 @@
             </ul>
             {% endif %}
             {% if ev.view.prompt_templates %}
-            <h4>Prompt Templates ({{ ev.view.prompt_templates | length }})</h4>
+            <h4 title="Prompt Templates 是可重用的指令模板，使用者打 /template-name 就能展開">Prompt Templates ({{ ev.view.prompt_templates | length }}) <span class="help-inline" title="使用者打斜線指令時會展開的模板">ⓘ</span></h4>
             <ul class="resource-list">
               {% for p in ev.view.prompt_templates %}
                 <li><strong>{{ p.name }}</strong> <span class="muted small">{{ p.filePath }}</span><br><span class="muted">{{ p.description }}</span></li>
@@ -62,7 +115,7 @@
             </ul>
             {% endif %}
             {% if ev.view.agents_files %}
-            <h4>AGENTS.md ({{ ev.view.agents_files | length }})</h4>
+            <h4 title="AGENTS.md 是放在專案根目錄的說明文件，Pi 啟動時會自動讀進 system prompt，讓 agent 知道專案規範">AGENTS.md ({{ ev.view.agents_files | length }}) <span class="help-inline" title="會自動成為 system prompt 的一部分">ⓘ</span></h4>
             <ul class="resource-list">
               {% for f in ev.view.agents_files %}
                 <li><code>{{ f.path }}</code> <span class="muted small">{{ f.content_length }} chars</span></li>
@@ -70,7 +123,12 @@
             </ul>
             {% endif %}
           {% elif ev.view.kind == 'context' %}
-            <p class="muted">model: <code>{{ ev.view.model.id if ev.view.model else '?' }}</code> · messages: {{ ev.view.message_count }} · tools: {{ ev.view.tool_count }}</p>
+            <p class="muted">
+              即將呼叫的 model: <code title="這是 Pi 解析後的 model id">{{ ev.view.model.id if ev.view.model else '?' }}</code> ·
+              訊息數: <span title="這是 agent 內部 message 陣列的長度。注意：經過 provider adapter 之後可能會多一筆 system message（往下看 Provider Adapter Diff）">{{ ev.view.message_count }}</span> ·
+              工具數: <span title="這次 model 呼叫帶上的 tool schema 數">{{ ev.view.tool_count }}</span>
+            </p>
+            <p class="help-section-intro">下方是 agent 內部的 message 陣列。<strong>這還沒經過 provider adapter 改寫</strong>——例如 toolResult 還沒變成 tool，&lt;think&gt; 還沒被抽出來變 reasoning 欄位。</p>
             <div class="message-cards">
               {% for m in ev.view.messages %}
                 <div class="msg msg-{{ m.role }}">
@@ -83,48 +141,75 @@
               {% endfor %}
             </div>
             {% if ev.view.tools %}
-              <details><summary>Tools sent to model ({{ ev.view.tool_count }})</summary>
+              <details><summary>傳給 model 的 tool 清單 ({{ ev.view.tool_count }}) <span class="help-inline" title="model 看到這些 tool 的 name + description，會自己決定要不要呼叫">ⓘ</span></summary>
                 <ul class="resource-list">
                   {% for t in ev.view.tools %}<li><strong>{{ t.name }}</strong> <span class="muted">{{ t.description }}</span></li>{% endfor %}
                 </ul>
               </details>
             {% endif %}
           {% elif ev.view.kind == 'tool_call' %}
-            <p class="muted">tool: <code>{{ ev.view.tool_name }}</code> · id: <code>{{ ev.view.tool_call_id }}</code></p>
+            <p class="muted">
+              工具名稱: <code title="這是 Pi 內建或 extension 註冊的 tool 名字">{{ ev.view.tool_name }}</code> ·
+              呼叫 id: <code title="同一個 tool_call_id 會配對 tool_result，方便追蹤一輪 tool 執行">{{ ev.view.tool_call_id }}</code>
+            </p>
+            <p class="help-section-intro">下方是 model 給 tool 的參數（從 model 回應的 tool_use block 解析出來的）：</p>
             <pre class="readable">{{ ev.view.args_preview }}{% if ev.view.args_truncated %}…{% endif %}</pre>
             {% if ev.view.args_truncated %}
-              <details><summary>Full args</summary><pre class="readable">{{ ev.view.args_full }}</pre></details>
+              <details><summary>展開完整 args</summary><pre class="readable">{{ ev.view.args_full }}</pre></details>
             {% endif %}
           {% elif ev.view.kind == 'tool_result' %}
-            <p class="muted">tool: <code>{{ ev.view.tool_name }}</code> · id: <code>{{ ev.view.tool_call_id }}</code> · {% if ev.view.is_error %}<span class="tool-err">ERROR</span>{% else %}<span class="tool-ok">ok</span>{% endif %} · {{ ev.view.duration_ms }}ms</p>
+            <p class="muted">
+              工具名稱: <code>{{ ev.view.tool_name }}</code> ·
+              呼叫 id: <code title="跟前一個 tool_call 的 id 配對">{{ ev.view.tool_call_id }}</code> ·
+              {% if ev.view.is_error %}<span class="tool-err" title="tool 執行失敗（permission denied / timeout / 非零 exit code 等）">ERROR</span>{% else %}<span class="tool-ok" title="tool 執行成功">ok</span>{% endif %} ·
+              <span title="tool 從開始到結束花了幾毫秒">{{ ev.view.duration_ms }}ms</span>
+            </p>
+            <p class="help-section-intro">下方是 tool 的執行結果（會在下一輪 model 呼叫時被注入 context 給 model 看）：</p>
             <pre class="readable">{{ ev.view.result_preview }}{% if ev.view.result_truncated %}…{% endif %}</pre>
             {% if ev.view.result_truncated %}
-              <details><summary>Full result</summary><pre class="readable">{{ ev.view.result_full }}</pre></details>
+              <details><summary>展開完整結果</summary><pre class="readable">{{ ev.view.result_full }}</pre></details>
             {% endif %}
           {% elif ev.view.kind == 'before_provider_payload' %}
-            <p class="muted">model: <code>{{ ev.view.summary.model }}</code> · messages: {{ ev.view.summary.message_count }} · tools: {{ ev.view.summary.tool_count }} · temp: {{ ev.view.summary.temperature }} · stream: {{ ev.view.summary.stream }}</p>
-            {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}">Open raw provider payload</a></p>{% endif %}
+            <p class="muted">
+              model: <code title="這是 adapter 攤平後的 model id（context stage 還是 dict）">{{ ev.view.summary.model }}</code> ·
+              訊息數: <span title="送 HTTP 給 LLM 的 messages 陣列長度，可能比 context 多 1（因為 adapter 加了 system）">{{ ev.view.summary.message_count }}</span> ·
+              工具數: {{ ev.view.summary.tool_count }} ·
+              <span title="採樣溫度，0 = 完全 deterministic">temp</span>: {{ ev.view.summary.temperature }} ·
+              <span title="是否用 streaming 收回應">stream</span>: {{ ev.view.summary.stream }}
+            </p>
+            {% if ev.payload_ref %}<p><a href="/api/raw/{{ ev.payload_ref }}" title="點進去看送到 LLM 的完整 HTTP request body（含所有 messages 與 tool schemas 的原文）">📄 開啟完整 provider payload (raw JSON)</a></p>{% endif %}
             {% set diff = stage_diffs.get(ev.trace_id) %}
             {% if diff %}
               <details class="stage-diff" open>
-                <summary><strong>Provider Adapter Diff</strong> <span class="muted small">context ({{ diff.message_count.ctx }} msgs) → payload ({{ diff.message_count.pp }} msgs)</span> <a href="/diff/{{ ev.trace_id }}" class="raw-diff-link">[open raw side-by-side ↗]</a></summary>
+                <summary><strong title="這個區塊是這個專案的核心 debug 工具——比較『agent 內部以為要送什麼』(context) 跟『實際送出的內容』(payload) 差多少。Provider adapter (在 pi-ai 套件裡) 會默默改寫訊息格式，常見動作包含：加 system prompt、把 toolResult 改名為 tool、把 thinking blocks 抽出來變 reasoning 欄位、加 stream:true 等等。">Provider Adapter Diff</strong> <span class="muted small">context ({{ diff.message_count.ctx }} 則) → payload ({{ diff.message_count.pp }} 則)</span> <a href="/diff/{{ ev.trace_id }}" class="raw-diff-link" title="開啟兩邊原始 JSON 並排顯示，逐行 highlight 差異">[並排看完整 JSON ↗]</a></summary>
+                <details class="help-block">
+                  <summary>什麼是 Provider Adapter？</summary>
+                  <p>Pi 內部用統一的 <code>AgentMessage</code> 格式管理對話歷史，但 OpenAI / Anthropic / Google 各家 LLM API 要的 JSON 格式都不同。<code>pi-ai</code> package 裡的 <strong>provider adapter</strong> 就是把 AgentMessage 轉成各家 API 認得的 payload。</p>
+                  <p>這個 diff 顯示 adapter 改了什麼。<strong>如果你發現 model 行為怪怪的，第一步就是看這裡有沒有意料外的改動。</strong></p>
+                </details>
                 {% if diff.top_changes %}
-                  <h4>Top-level field changes</h4>
+                  <h4 title="這些是 top-level JSON 欄位的差異（不在 messages 陣列裡的欄位）">最外層欄位的改動 <span class="help-inline" title="例如 stream / temperature / store 這類整個 payload 的設定">ⓘ</span></h4>
                   <ul class="diff-list">
                     {% for c in diff.top_changes %}
                       {% if c.kind == 'added' %}
-                        <li><span class="diff-add">+</span> <code>{{ c.key }}</code> = <code>{{ c.value | tojson | truncate(100) }}</code> <span class="muted small">added by adapter</span></li>
+                        <li><span class="diff-add" title="這個欄位是 adapter 自己加進去的，agent 本來沒這個欄位">+</span> <code>{{ c.key }}</code> = <code>{{ c.value | tojson | truncate(100) }}</code> <span class="muted small">由 adapter 新增</span></li>
                       {% elif c.kind == 'removed' %}
-                        <li><span class="diff-rem">−</span> <code>{{ c.key }}</code> <span class="muted small">stripped by adapter</span></li>
+                        <li><span class="diff-rem" title="agent 本來有這個欄位，adapter 把它拿掉了（通常是因為 model API 不認）">−</span> <code>{{ c.key }}</code> <span class="muted small">由 adapter 移除</span></li>
                       {% else %}
-                        <li><span class="diff-chg">~</span> <code>{{ c.key }}</code>: <code>{{ c.ctx_value | tojson | truncate(60) }}</code> → <code>{{ c.pp_value | tojson | truncate(60) }}</code></li>
+                        <li><span class="diff-chg" title="兩邊都有但值不一樣">~</span> <code>{{ c.key }}</code>: <code>{{ c.ctx_value | tojson | truncate(60) }}</code> → <code>{{ c.pp_value | tojson | truncate(60) }}</code></li>
                       {% endif %}
                     {% endfor %}
                   </ul>
                 {% endif %}
-                <h4>Per-message changes</h4>
+                <h4 title="逐一比較每個 message 在 agent 端跟 provider 端的差異">每則 message 的改動</h4>
                 <table class="diff-table">
-                  <thead><tr><th>#</th><th>Context</th><th>→</th><th>Payload</th><th>Δ</th></tr></thead>
+                  <thead><tr>
+                    <th title="在 messages 陣列中的位置（0-based）">#</th>
+                    <th title="agent 內部 message 陣列裡的這一筆">Context (agent 內部)</th>
+                    <th></th>
+                    <th title="送 HTTP 給 LLM 的 messages 陣列裡對應這一筆">Payload (送給模型的)</th>
+                    <th title="這一筆的具體變化">改了什麼</th>
+                  </tr></thead>
                   <tbody>
                     {% for d in diff.message_diffs %}
                       <tr class="diff-row-{{ d.kind }}">
@@ -139,19 +224,23 @@
                           {% if d.pp_preview %}<div class="muted small">{{ d.pp_preview | truncate(80) }}</div>{% endif %}
                         </td>
                         <td>
-                          {% if d.kind == 'added' %}<span class="diff-add">ADDED</span>
-                          {% elif d.kind == 'removed' %}<span class="diff-rem">REMOVED</span>
+                          {% if d.kind == 'added' %}<span class="diff-add" title="這筆是 adapter 在這個位置插入的（agent 本來沒有）">ADDED</span>
+                          {% elif d.kind == 'removed' %}<span class="diff-rem" title="agent 本來有這筆，adapter 把它拿掉了">REMOVED</span>
                           {% elif d.kind == 'modified' %}
-                            {% for ch in d.changes %}<div class="muted small">{{ ch }}</div>{% endfor %}
-                          {% else %}<span class="muted">—</span>{% endif %}
+                            {% for ch in d.changes %}<div class="muted small" title="role: 角色被改名了 / content shape: 內容格式變了 / stripped: 這些欄位被拿掉 / added: 這些欄位是 adapter 加的">{{ ch }}</div>{% endfor %}
+                          {% else %}<span class="muted" title="完全一樣，沒有改動">—</span>{% endif %}
                         </td>
                       </tr>
                     {% endfor %}
                   </tbody>
                 </table>
                 {% if diff.tools.ctx_count != diff.tools.pp_count or diff.tools.wrapped_in_function_envelope %}
-                  <h4>Tools</h4>
-                  <p class="muted small">ctx: {{ diff.tools.ctx_count }} ({{ diff.tools.ctx_names | join(', ') }}) → payload: {{ diff.tools.pp_count }} ({{ diff.tools.pp_names | join(', ') }}){% if diff.tools.wrapped_in_function_envelope %} · adapter wrapped in <code>{type:"function", function:{...}}</code> envelope{% endif %}</p>
+                  <h4 title="Tool schema 的改動">Tools</h4>
+                  <p class="muted small">
+                    agent 端: {{ diff.tools.ctx_count }} 個 ({{ diff.tools.ctx_names | join(', ') }}) →
+                    payload 端: {{ diff.tools.pp_count }} 個 ({{ diff.tools.pp_names | join(', ') }})
+                    {% if diff.tools.wrapped_in_function_envelope %} · <span title="OpenAI-compatible API 要求 tool 用這個 envelope 結構包起來，所以 adapter 自動加了一層">adapter 把每個 tool 用 <code>{type:"function", function:{...}}</code> 包了一層</span>{% endif %}
+                  </p>
                 {% endif %}
               </details>
             {% endif %}
@@ -163,11 +252,14 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="muted">No agent events captured for this session.</p>
+    <p class="muted">這個 session 沒有任何 agent event。可能原因：1) 這是用 curl 直打 hub 的測試 trace；2) Pi 端 emit 模組被 <code>AOH_OBSERVATION_DISABLE=1</code> 關掉；3) hub tailer 還沒 ingest 完。</p>
     {% endif %}
 
-    <h2>LLM Calls</h2>
-    <p class="muted">Payload mode: {{ payload_mode }}</p>
+    <h2>LLM Calls
+      <span class="help-inline" title="hub gateway 攔截到的 HTTP request / response 原文，跟上面 Agent Events 的 before_provider_payload 應該是一致的">ⓘ</span>
+    </h2>
+    <p class="help-section-intro">這是 hub 在 gateway 層攔截的 HTTP 呼叫紀錄（送給上游 vLLM / MiniMax / OpenAI 的原文）。跟上方 <code>before_provider_payload</code> event 內容應該完全一致，但這層是「真正打到上游之前最後一刻」的快照。</p>
+    <p class="muted small" title="raw = 原始；redacted = API key/PII 已被遮罩；ALLOW_RAW_VIEW=true 時可以看 raw">Payload 模式: <code>{{ payload_mode }}</code></p>
     <div class="stack">
       {% for item in call_views %}
         {% set call = item.call %}
@@ -193,10 +285,19 @@
         </details>
       {% endfor %}
     </div>
-    <h2>Correlations</h2>
+    <h2>Correlations
+      <span class="help-inline" title="跨系統的 ID 對應表。例如 LLM provider 自己給的 trace id、上游 gateway 給的 request id 等，方便去其他系統交叉比對">ⓘ</span>
+    </h2>
+    <p class="help-section-intro">跨系統的 ID 對應表，方便對應到上游 LLM provider 或其他 observability 系統的紀錄。</p>
     {% if correlations %}
       <table>
-        <thead><tr><th>Source</th><th>Key</th><th>Value</th><th>Run</th><th>LLM Call</th></tr></thead>
+        <thead><tr>
+          <th title="這個 ID 從哪個系統 / header 來的">Source</th>
+          <th title="ID 的欄位名">Key</th>
+          <th title="ID 的值">Value</th>
+          <th title="關聯到哪次 run">Run</th>
+          <th title="關聯到哪個 LLM call">LLM Call</th>
+        </tr></thead>
         <tbody>
         {% for item in correlations %}
           <tr>
@@ -210,7 +311,7 @@
         </tbody>
       </table>
     {% else %}
-      <p class="muted">No correlations captured.</p>
+      <p class="muted">這次呼叫沒有跨系統 ID 可以對應（通常是 Pi 直接打 hub，沒有經過第三方 gateway）。</p>
     {% endif %}
   </main>
 </body>

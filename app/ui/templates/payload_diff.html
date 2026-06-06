@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <title>Payload Diff {{ trace_id }}</title>
@@ -7,20 +7,42 @@
 </head>
 <body>
   <main class="wide">
-    <p><a href="/traces/{{ trace_id }}">← back to trace</a></p>
-    <h1>Payload Diff <span class="muted small">{{ trace_id }}</span></h1>
+    <p><a href="/traces/{{ trace_id }}">← 回 trace 詳情頁</a></p>
+    <h1>Payload Diff <span class="muted small" title="這次 LLM 呼叫的 trace_id">{{ trace_id }}</span></h1>
+    <p class="help-section-intro">
+      左右並排比較這次 LLM 呼叫的兩個關鍵 stage 的原始 JSON：
+      <strong>左邊 context</strong> 是 agent 內部以為要送的內容，
+      <strong>右邊 before_provider_payload</strong> 是經過 pi-ai provider adapter 改寫後即將送 HTTP 給上游 LLM 的內容。
+    </p>
+    <details class="help-block">
+      <summary>怎麼看這個並排比較？</summary>
+      <p><strong>顏色含意：</strong></p>
+      <ul>
+        <li><span class="json-line equal" style="padding: 0 6px; border: 1px solid #ccc;">沒底色</span>：兩邊一模一樣</li>
+        <li><span class="json-line added" style="padding: 0 6px; border: 1px solid #b3d8c0;">綠色</span>：只在右邊有（adapter 自己加的）</li>
+        <li><span class="json-line removed" style="padding: 0 6px; border: 1px solid #e8b5b5;">紅色</span>：只在左邊有（adapter 拿掉的）</li>
+        <li><span class="json-line changed" style="padding: 0 6px; border: 1px solid #e0c97a;">黃色</span>：兩邊都有但內容不一樣</li>
+        <li><span class="json-line empty" style="padding: 0 6px; border: 1px solid #ccc;">灰色</span>：佔位（讓兩邊行數對齊）</li>
+      </ul>
+      <p><strong>常見模式：</strong></p>
+      <ul>
+        <li>左邊有 <code>"timestamp": ...</code>、右邊沒有 → adapter 把 agent 自己的 metadata 拿掉了（model 不需要看）</li>
+        <li>右邊有 <code>"stream": true</code>、左邊沒有 → adapter 自動開了 streaming</li>
+        <li>左邊 <code>"role": "toolResult"</code>、右邊 <code>"role": "tool"</code> → OpenAI-compatible API 用 tool 不用 toolResult</li>
+        <li>右邊出現 <code>"reasoning": "..."</code>、左邊沒有 → adapter 把 assistant 內容裡的 &lt;think&gt; block 抽出來變成獨立欄位</li>
+      </ul>
+    </details>
     {% if not ctx_json or not pp_json %}
-      <p class="muted">Both <code>context</code> and <code>before_provider_payload</code> events must exist for this trace to render a diff. Found: ctx={{ ctx_json is not none }}, pp={{ pp_json is not none }}.</p>
+      <p class="muted">這次 trace 沒有同時記到 <code>context</code> 跟 <code>before_provider_payload</code> 兩個 stage，無法並排顯示。可能原因：1) trace 太舊（Cut 3a 之前的）；2) trace 是手動 curl 測試的；3) JSONL 還沒 ingest 完。 (ctx={{ ctx_json is not none }}, pp={{ pp_json is not none }})</p>
     {% else %}
-      <p class="muted small">Left: <strong>context</strong> — what the agent has. Right: <strong>before_provider_payload</strong> — what the provider adapter built. Highlighted rows differ.</p>
       <div class="diff-columns">
         <div class="diff-col">
-          <h3>context</h3>
+          <h3 title="agent 內部 message 陣列的快照（pi-ai adapter 還沒動過）">context <span class="help-inline" title="agent 自己以為要送什麼">ⓘ</span></h3>
           <pre class="json-pane">{% for line in ctx_lines %}<span class="json-line {{ line.cls }}">{{ line.text }}</span>
 {% endfor %}</pre>
         </div>
         <div class="diff-col">
-          <h3>before_provider_payload.payload</h3>
+          <h3 title="即將 HTTP 送出去前的 payload（pi-ai adapter 已經改寫過）">before_provider_payload.payload <span class="help-inline" title="模型實際看到什麼">ⓘ</span></h3>
           <pre class="json-pane">{% for line in pp_lines %}<span class="json-line {{ line.cls }}">{{ line.text }}</span>
 {% endfor %}</pre>
         </div>

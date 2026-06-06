@@ -202,8 +202,10 @@ def test_trace_ui_orders_sections_timeline_calls_correlations(app_client):
     response = app_client.get("/traces/trace_order_ui")
 
     assert response.status_code == 200
-    assert response.text.index("<h2>Timeline</h2>") < response.text.index("<h2>LLM Calls</h2>")
-    assert response.text.index("<h2>LLM Calls</h2>") < response.text.index("<h2>Correlations</h2>")
+    # Section headings now include explanatory text + tooltips per the UI doc spec;
+    # match by leading "<h2>Section" prefix only.
+    assert response.text.index("<h2>Timeline") < response.text.index("<h2>LLM Calls")
+    assert response.text.index("<h2>LLM Calls") < response.text.index("<h2>Correlations")
 
 
 def test_trace_ui_embeds_expanded_readable_llm_response_and_reasoning(app_client):
