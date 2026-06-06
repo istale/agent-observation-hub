@@ -10,10 +10,16 @@ TRUNCATE_CHARS = 800
 
 
 def _read_ref(payload_ref: str | None) -> Any:
+    """Read a payload referenced by agent_events.payload_ref.
+
+    payload_ref is stored relative to data_dir/raw (same convention as
+    llm_calls.request_ref) so /api/raw/{ref} can serve it. Older rows that
+    started with "raw/" were normalized by migration 006.
+    """
     if not payload_ref:
         return None
     settings = get_settings()
-    path = settings.data_dir / payload_ref
+    path = settings.data_dir / "raw" / payload_ref
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:

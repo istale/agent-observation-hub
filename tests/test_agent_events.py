@@ -218,6 +218,25 @@ def test_view_shaper_tool_result_flattens_content_blocks():
     assert "stdout line 2" in view["result_preview"]
 
 
+def test_enrich_events_resolves_payload_ref_to_actual_content(app_client):
+    """enrich_events must decode payload_ref (large-payload sidecar files)
+    using the same data_dir/raw convention as /api/raw/. Regression test for
+    the trace page showing 'Provider Adapter Diff' but no comparison rows."""
+    big = {"messages": [{"role": "user", "content": "hello"}], "stream": True}
+    _post(app_client, {
+        "trace_id": "trace-decode",
+        "session_id": "sess",
+        "event_seq": 1,
+        "stage": "before_provider_payload",
+        "payload": {"model": {"id": "m"}, "payload": big},
+    })
+    events = Repository.from_env().list_agent_events("trace-decode")
+    enriched = enrich_events(events)
+    assert enriched[0]["payload"] is not None, \
+        "enrich_events failed to decode the payload_ref-backed event"
+    assert enriched[0]["payload"]["payload"]["stream"] is True
+
+
 def test_view_shaper_truncation():
     long = "y" * 2000
     events = [{
