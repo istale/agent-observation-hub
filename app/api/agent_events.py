@@ -16,7 +16,11 @@ INLINE_MAX_BYTES = 4096
 
 
 def _store_payload(trace_id: str, event_seq: int | None, stage: str, payload: Any) -> tuple[str | None, str | None]:
-    """Return (payload_inline, payload_ref). Small payloads stored inline; large to file."""
+    """Return (payload_inline, payload_ref). Small payloads stored inline; large to file.
+
+    payload_ref is stored relative to data_dir/raw (matching the convention used
+    by llm_calls.request_ref) so /api/raw/{ref} resolves correctly.
+    """
     if payload is None:
         return None, None
     encoded = json.dumps(payload, ensure_ascii=False)
@@ -24,12 +28,13 @@ def _store_payload(trace_id: str, event_seq: int | None, stage: str, payload: An
         return encoded, None
     settings = get_settings()
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    target_dir: Path = settings.data_dir / "raw" / date / f"trace_{trace_id}"
+    raw_root: Path = settings.data_dir / "raw"
+    target_dir: Path = raw_root / date / f"trace_{trace_id}"
     target_dir.mkdir(parents=True, exist_ok=True)
     seq_part = f"_{event_seq}" if event_seq is not None else ""
     target = target_dir / f"agent_event{seq_part}_{stage}.json"
     target.write_text(encoded, encoding="utf-8")
-    return None, str(target.relative_to(settings.data_dir))
+    return None, str(target.relative_to(raw_root))
 
 
 @router.post("/api/agent-events")

@@ -55,9 +55,31 @@ def test_post_large_payload_written_to_ref(app_client):
     assert events[0]["payload_inline"] is None
     ref = events[0]["payload_ref"]
     assert ref is not None
-    abs_path = get_settings().data_dir / ref
+    # payload_ref must be relative to data_dir/raw (NOT data_dir) so /api/raw/{ref}
+    # resolves — matches the convention used by llm_calls.request_ref.
+    assert not ref.startswith("raw/"), f"payload_ref should not start with raw/: {ref}"
+    abs_path = get_settings().data_dir / "raw" / ref
     on_disk = json.loads(abs_path.read_text(encoding="utf-8"))
     assert on_disk["messages"][0]["content"].startswith("x")
+
+
+def test_payload_ref_resolves_via_raw_api(app_client):
+    """End-to-end: a stored payload_ref must be fetchable via /api/raw/{ref}."""
+    big = {"hello": "y" * 6000}
+    _post(app_client, {
+        "trace_id": "trace-ref",
+        "session_id": "sess",
+        "event_seq": 1,
+        "stage": "before_provider_payload",
+        "payload": big,
+    })
+    events = app_client.get("/api/traces/trace-ref/agent-events").json()["agent_events"]
+    ref = events[0]["payload_ref"]
+    assert ref
+
+    resp = app_client.get(f"/api/raw/{ref}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["hello"].startswith("y")
 
 
 def test_session_rollup_across_trace_ids(app_client):

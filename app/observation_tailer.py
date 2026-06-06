@@ -38,6 +38,8 @@ def _save_state(state_path: Path, state: dict[str, int]) -> None:
 
 
 def _store_payload(trace_id: str, event_seq: Any, stage: str, payload: Any) -> tuple[str | None, str | None]:
+    """Same convention as app.api.agent_events._store_payload: ref is relative
+    to data_dir/raw so /api/raw/{ref} resolves correctly."""
     if payload is None:
         return None, None
     encoded = json.dumps(payload, ensure_ascii=False)
@@ -45,12 +47,13 @@ def _store_payload(trace_id: str, event_seq: Any, stage: str, payload: Any) -> t
         return encoded, None
     settings = get_settings()
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    target_dir = settings.data_dir / "raw" / date / f"trace_{trace_id}"
+    raw_root = settings.data_dir / "raw"
+    target_dir = raw_root / date / f"trace_{trace_id}"
     target_dir.mkdir(parents=True, exist_ok=True)
     seq_part = f"_{event_seq}" if event_seq is not None else ""
     target = target_dir / f"agent_event{seq_part}_{stage}.json"
     target.write_text(encoded, encoding="utf-8")
-    return None, str(target.relative_to(settings.data_dir))
+    return None, str(target.relative_to(raw_root))
 
 
 def _ingest_line(repo: Repository, raw: str) -> bool:
