@@ -370,3 +370,47 @@ pre.flow-diagram {
   color: #2c3e50;
 }
 pre.flow-diagram strong { color: #b02a37; background: #fff3c4; padding: 0 2px; border-radius: 2px; }
+
+/* --- System prompt rebuild round + table --- */
+details.agent-event-system_prompt_assembled { border-left-color: #6a5acd; }
+.round-system-prompt {
+  background: #ede8fa;
+  border-left: 4px solid #6a5acd;
+  color: #3b2f70;
+}
+.sys-prompt-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+  background: white;
+}
+.sys-prompt-table th, .sys-prompt-table td {
+  border: 1px solid #e1e5e8;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+.sys-prompt-table th { background: #f4f0fc; text-align: left; }
+.sys-prompt-row.sys-prompt-custom_prompt    { background: #fff4e0; }
+.sys-prompt-row.sys-prompt-default_template { background: #f5f8fc; }
+.sys-prompt-row.sys-prompt-append_text      { background: #fff8e0; }
+.sys-prompt-row.sys-prompt-context_file     { background: #eaf6ec; }
+.sys-prompt-row.sys-prompt-skills_block     { background: #fbeef8; }
+.sys-prompt-row.sys-prompt-date,
+.sys-prompt-row.sys-prompt-cwd              { background: #f0f0f0; }
+.bar-bg {
+  background: #eee;
+  border-radius: 2px;
+  height: 6px;
+  width: 70px;
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+.bar-fill { background: #6a5acd; height: 100%; }
+pre.sys-prompt-content {
+  max-height: 320px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

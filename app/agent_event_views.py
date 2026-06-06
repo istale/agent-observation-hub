@@ -109,6 +109,34 @@ def _shape_before_agent_start(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
+    components = payload.get("components") or []
+    total = int(payload.get("total_chars") or 0)
+    shaped: list[dict[str, Any]] = []
+    for c in components:
+        chars = int(c.get("chars") or 0)
+        pct = (chars / total * 100.0) if total > 0 else 0.0
+        shaped.append({
+            "id": c.get("id"),
+            "label": c.get("label"),
+            "source": c.get("source"),
+            "kind": c.get("kind"),
+            "chars": chars,
+            "pct": round(pct, 1),
+            "preview": c.get("preview") or "",
+            "content": c.get("content") or "",
+        })
+    return {
+        "kind": "system_prompt_assembled",
+        "reason": payload.get("reason"),
+        "total_chars": total,
+        "component_count": len(components),
+        "components": shaped,
+        "active_tools": payload.get("active_tools") or [],
+        "custom_prompt_in_use": bool(payload.get("custom_prompt_in_use")),
+    }
+
+
 def _shape_resource_loaded(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "kind": "resource_loaded",
@@ -204,6 +232,7 @@ SHAPERS = {
     "before_provider_payload": _shape_before_provider_payload,
     "tool_call": _shape_tool_call,
     "tool_result": _shape_tool_result,
+    "system_prompt_assembled": _shape_system_prompt_assembled,
 }
 
 

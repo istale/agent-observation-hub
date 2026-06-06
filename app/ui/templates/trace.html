@@ -194,6 +194,12 @@
           <span class="round-label">Tool Execution</span>
           <span class="round-meta muted small">執行 tool 並把結果準備好給下一次 Model Call</span>
         </div>
+      {% elif round.kind == 'system_prompt' %}
+        <div class="round-header round-system-prompt" title="Pi 重新組裝 system prompt。組成的每一段 component 都會列在下方——讓你看見『system prompt 為什麼長這樣』。觸發時機：session 初始、tool 改變、extension 載入 resources、或 model 切換。">
+          <span class="round-icon">🧱</span>
+          <span class="round-label">System Prompt 組裝</span>
+          <span class="round-meta muted small">每一段 component 的來源與字數</span>
+        </div>
       {% endif %}
       {% for ev in round.events %}
         <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
@@ -203,7 +209,47 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'before_agent_start' %}
+          {% if ev.view.kind == 'system_prompt_assembled' %}
+            <p class="muted">
+              <span title="這次重新組裝 system prompt 的觸發原因">觸發原因</span>: <code>{{ ev.view.reason }}</code> ·
+              <span title="組好的 system prompt 總字元數">總字元</span>: {{ ev.view.total_chars }} ·
+              <span title="一共由幾段 component 串起來">component 數</span>: {{ ev.view.component_count }} ·
+              <span title="當前活躍的 tool 名稱清單">tools</span>: {{ ev.view.active_tools | join(', ') }}
+              {% if ev.view.custom_prompt_in_use %}<span class="tool-err" title="settings.json 或 resourceLoader 提供了 customSystemPrompt，所以 Pi 跳過預設模板">使用 custom prompt</span>{% endif %}
+            </p>
+            <table class="sys-prompt-table">
+              <thead><tr>
+                <th title="component 在最終 prompt 中的順序">#</th>
+                <th title="component 類型 / 標籤">Component</th>
+                <th title="這段內容從哪裡來：檔案路徑、設定欄位、或常數模板">Source</th>
+                <th title="這段內容的字元數">Chars</th>
+                <th title="這段佔整體 system prompt 的比例">%</th>
+                <th title="內容預覽（點 cell 展開全文）">Preview</th>
+              </tr></thead>
+              <tbody>
+                {% for c in ev.view.components %}
+                  <tr class="sys-prompt-row sys-prompt-{{ c.kind }}">
+                    <td class="muted">{{ loop.index }}</td>
+                    <td><span class="badge" title="component kind: {{ c.kind }}">{{ c.kind }}</span><br><strong>{{ c.label }}</strong></td>
+                    <td class="muted small"><code>{{ c.source }}</code></td>
+                    <td>{{ c.chars }}</td>
+                    <td>
+                      <div class="bar-bg" title="{{ c.pct }}%">
+                        <div class="bar-fill" style="width: {{ c.pct }}%"></div>
+                      </div>
+                      <span class="muted small">{{ c.pct }}%</span>
+                    </td>
+                    <td>
+                      <details>
+                        <summary class="muted small">{{ c.preview | truncate(80) }}{% if c.chars > 80 %}…{% endif %}</summary>
+                        <pre class="readable sys-prompt-content">{{ c.content }}</pre>
+                      </details>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% elif ev.view.kind == 'before_agent_start' %}
             <p class="muted" title="source = 這次 prompt 從哪裡來（interactive = TUI 互動；extension = 由 extension 觸發；print = 從 -p 參數）；image_count = 同一輪附帶了幾張圖">
               來源: <code>{{ ev.view.source }}</code> · 附圖數: {{ ev.view.image_count }}
             </p>

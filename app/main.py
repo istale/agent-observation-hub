@@ -171,6 +171,8 @@ def create_app() -> FastAPI:
                 return "user_input"
             if tid.startswith("tool_"):
                 return "tool_execution"
+            if tid.startswith("session_") and tid.endswith("_sysprompt"):
+                return "system_prompt"
             return "model_call"
 
         turn_rounds: list[dict] = []
