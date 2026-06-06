@@ -73,10 +73,79 @@
       </ul>
       <p><strong>seq</strong> 是同一個 trace 內的序號（從 1 開始遞增），跟 timestamp 一起用可以確認順序。</p>
     </details>
-    {% set merged = (session_events or []) %}
-    {% if merged %}
+    {% if session_setup_events %}
+    <h3 class="section-sub" title="這些事件是 Pi 啟動 session 那一瞬間做的事，跟使用者送的 prompt 沒有直接關係。一個 session 只會有一次。">🛠 Session 啟動設定
+      <span class="help-inline" title="這些 stage 在 createAgentSession() 階段觸發，比 before_agent_start 早一點點（同一秒），但跟『這次 prompt』的處理流程無關">ⓘ</span>
+    </h3>
+    <p class="help-section-intro">
+      Pi 啟動 session 時就先載入好的資源——例如 skills、prompt templates、AGENTS.md。<strong>這在使用者送任何 prompt 之前就已經發生</strong>，整個 session 共用同一份。
+    </p>
     <div class="stack">
-      {% for ev in merged %}
+      {% for ev in session_setup_events %}
+        <details class="agent-event agent-event-{{ ev.stage }}">
+          <summary>
+            <span class="badge" title="這是 stage 名稱。resource_loaded = Pi 啟動 session 時掃描 skills/templates/AGENTS.md">{{ ev.stage }}</span>
+            <span class="muted small" title="這個事件在當前 trace 內的序號">seq {{ ev.event_seq }}</span>
+            <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
+            <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的">{{ ev.source_module or '' }}</span>
+          </summary>
+          {% if ev.view.kind == 'resource_loaded' %}
+            <p class="muted">
+              <span title="Pi 啟動時的工作目錄">cwd</span>: <code>{{ ev.view.cwd }}</code> ·
+              <span title="Pi 用來放 agent 設定的目錄">agentDir</span>: <code>{{ ev.view.agent_dir }}</code>
+            </p>
+            {% if ev.view.skills %}
+              <h4 title="Skills 是 Pi 的擴充能力包">Skills ({{ ev.view.skills | length }})</h4>
+              <ul class="resource-list">
+                {% for s in ev.view.skills %}
+                  <li><strong>{{ s.name }}</strong> <span class="muted small">{{ s.filePath }}</span><br><span class="muted">{{ s.description }}</span></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            {% if ev.view.prompt_templates %}
+              <h4>Prompt Templates ({{ ev.view.prompt_templates | length }})</h4>
+              <ul class="resource-list">
+                {% for p in ev.view.prompt_templates %}
+                  <li><strong>{{ p.name }}</strong> <span class="muted small">{{ p.filePath }}</span><br><span class="muted">{{ p.description }}</span></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+            {% if ev.view.agents_files %}
+              <h4>AGENTS.md ({{ ev.view.agents_files | length }})</h4>
+              <ul class="resource-list">
+                {% for f in ev.view.agents_files %}
+                  <li><code>{{ f.path }}</code> <span class="muted small">{{ f.content_length }} chars</span></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% endif %}
+        </details>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <h3 class="section-sub" title="使用者送出 prompt 之後，agent 內部依時間順序經歷的所有 stage">📜 對話流程 Turn Timeline
+      <span class="help-inline" title="從使用者按下送出開始，到 model 回完訊息為止。一個 session 裡每按一次送出都會產生一段這樣的 timeline。">ⓘ</span>
+    </h3>
+    <p class="help-section-intro">
+      下方按時間順序顯示 Pi 從「收到使用者輸入」到「model 回應完畢」之間的每個 stage。每出現一筆 <code>before_agent_start</code> 就代表使用者送出了一次 prompt。
+    </p>
+    {% if turn_events %}
+    <div class="user-submit-marker" title="這是使用者打字並按下送出的瞬間——所有下方的 agent 處理都是被這個動作觸發的">
+      <span class="user-submit-icon">👤</span>
+      <span>使用者送出 prompt（這個動作本身不是 event，但它觸發了下方所有 agent 處理）</span>
+      <span class="user-submit-arrow">↓</span>
+    </div>
+    <div class="stack">
+      {% for ev in turn_events %}
+        {# Each new before_agent_start marks the start of a new user turn within this session. #}
+        {% if not loop.first and ev.stage == 'before_agent_start' %}
+        <div class="user-submit-marker" title="使用者在同一個 session 內又送出了下一個 prompt">
+          <span class="user-submit-icon">👤</span>
+          <span>使用者送出下一個 prompt</span>
+          <span class="user-submit-arrow">↓</span>
+        </div>
+        {% endif %}
         <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
           <summary>
             <span class="badge" title="這是 stage 名稱。before_agent_start = 收到使用者輸入；resource_loaded = 載入 skills/templates；context = 即將送給模型的 message 陣列；before_provider_payload = adapter 改寫後的最終 payload；tool_call / tool_result = 工具呼叫前後。">{{ ev.stage }}</span>

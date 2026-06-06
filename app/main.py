@@ -151,6 +151,14 @@ def create_app() -> FastAPI:
                 diff = compute_stage_diff(ctx_ev.get("payload"), pp_ev.get("payload"))
                 if diff:
                     diffs_by_trace[tid] = diff
+        # Split session_events into:
+        #   - session_setup_events: resource_loaded (one-time, session-level setup)
+        #   - turn_events: everything triggered by a user turn, in chrono order
+        # This matches the user mental model where "I submitted a prompt" is the
+        # start of the timeline; resource_loaded technically happens during
+        # createAgentSession() but it's setup, not part of any turn.
+        session_setup_events = [e for e in session_events if e["stage"] == "resource_loaded"]
+        turn_events = [e for e in session_events if e["stage"] != "resource_loaded"]
         return templates.TemplateResponse(request, "trace.html", {
             "trace_id": trace_id,
             "run": run,
@@ -161,6 +169,8 @@ def create_app() -> FastAPI:
             "payload_mode": current_payload_mode(),
             "agent_events": agent_events,
             "session_events": session_events,
+            "session_setup_events": session_setup_events,
+            "turn_events": turn_events,
             "session_id": session_id,
             "stage_diffs": diffs_by_trace,
         })
