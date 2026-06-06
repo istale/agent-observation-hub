@@ -177,6 +177,8 @@ def create_app() -> FastAPI:
                 return "compaction_check"
             if tid.startswith("compaction_"):
                 return "compaction"
+            if tid.startswith("session_") and tid.endswith("_lifecycle"):
+                return "lifecycle"
             return "model_call"
 
         turn_rounds: list[dict] = []

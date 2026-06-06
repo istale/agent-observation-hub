@@ -212,6 +212,12 @@
           <span class="round-label">Context Compaction</span>
           <span class="round-meta muted small">壓縮舊訊息成 summary（model 看不到原訊息）</span>
         </div>
+      {% elif round.kind == 'lifecycle' %}
+        <div class="round-header round-lifecycle" title="Session 中途發生狀態變化：使用者切換 model、開關 tool、reload 設定。這會影響後續所有 turn 的行為——例如 system prompt 會重組、新 tool 開始可用。">
+          <span class="round-icon">⚙️</span>
+          <span class="round-label">Session 狀態變化</span>
+          <span class="round-meta muted small">影響後續所有 turn 的設定變動</span>
+        </div>
       {% endif %}
       {% for ev in round.events %}
         <details class="agent-event agent-event-{{ ev.stage }}" {% if ev.view.kind == 'context' or ev.view.kind == 'before_agent_start' %}open{% endif %}>
@@ -221,7 +227,27 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'slash_command_handled' %}
+          {% if ev.view.kind == 'model_switched' %}
+            <p class="muted">
+              <span title="使用者中途切換 model（/model 指令或 setModel API），後續呼叫會打新 model">🔁 切換 model</span>:
+              {% if ev.view.from_provider %}<code>{{ ev.view.from_provider }}/{{ ev.view.from_id }}</code>{% else %}<span class="muted">(初始)</span>{% endif %}
+              → <code>{{ ev.view.to_provider }}/{{ ev.view.to_id }}</code>
+              {% if ev.view.to_api %} <span class="muted small">api: {{ ev.view.to_api }}</span>{% endif %}
+              · thinking: <code>{{ ev.view.thinking_level }}</code>
+            </p>
+          {% elif ev.view.kind == 'active_tools_changed' %}
+            <p class="muted">
+              <span title="使用者中途開關 tool；下一次 model call 看到的 tool schema 會改變">🔧 active tools 改變</span>
+              {% if ev.view.added %} · 新增: {% for n in ev.view.added %}<code>{{ n }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+              {% if ev.view.removed %} · 移除: {% for n in ev.view.removed %}<code>{{ n }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+            </p>
+            <p class="muted small">完整 active set: {% for n in ev.view.after %}<code>{{ n }}</code>{% if not loop.last %} {% endif %}{% endfor %}</p>
+          {% elif ev.view.kind == 'session_reloaded' %}
+            <p class="muted">
+              <span title="使用者觸發 session reload（通常透過 /reload 指令），settings + resourceLoader 重新載入；下一次 system_prompt_assembled 可能不同">🔄 Session 重新載入</span>
+            </p>
+            <p class="muted small">{{ ev.view.note }}</p>
+          {% elif ev.view.kind == 'slash_command_handled' %}
             <p class="muted">
               <span title="使用者打的 / 開頭指令被某個 extension 攔截，沒進 LLM">⛔ slash command 被攔截</span> · 原文: <code>{{ ev.view.text }}</code>
             </p>

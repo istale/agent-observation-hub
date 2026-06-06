@@ -137,6 +137,35 @@ def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_model_switched(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "model_switched",
+        "from_provider": (payload.get("from") or {}).get("provider"),
+        "from_id": (payload.get("from") or {}).get("id"),
+        "to_provider": (payload.get("to") or {}).get("provider"),
+        "to_id": (payload.get("to") or {}).get("id"),
+        "to_api": (payload.get("to") or {}).get("api"),
+        "thinking_level": payload.get("thinking_level"),
+    }
+
+
+def _shape_active_tools_changed(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "active_tools_changed",
+        "before": payload.get("before") or [],
+        "after": payload.get("after") or [],
+        "added": payload.get("added") or [],
+        "removed": payload.get("removed") or [],
+    }
+
+
+def _shape_session_reloaded(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "kind": "session_reloaded",
+        "note": payload.get("note"),
+    }
+
+
 def _shape_slash_command_handled(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "kind": "slash_command_handled",
@@ -435,6 +464,9 @@ SHAPERS = {
     "prompt_template_expanded": _shape_prompt_template_expanded,
     "queued_steer": _shape_queued_message,
     "queued_followup": _shape_queued_message,
+    "model_switched": _shape_model_switched,
+    "active_tools_changed": _shape_active_tools_changed,
+    "session_reloaded": _shape_session_reloaded,
 }
 
 

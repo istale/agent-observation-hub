@@ -471,3 +471,13 @@ details.agent-event-skill_command_expanded,
 details.agent-event-prompt_template_expanded,
 details.agent-event-queued_steer,
 details.agent-event-queued_followup { border-left-color: #2e8b57; }
+
+/* Cut 6f: session lifecycle round + events */
+details.agent-event-model_switched       { border-left-color: #ba55d3; }
+details.agent-event-active_tools_changed { border-left-color: #4682b4; }
+details.agent-event-session_reloaded     { border-left-color: #6c757d; }
+.round-lifecycle {
+  background: #efe5f5;
+  border-left: 4px solid #ba55d3;
+  color: #5e2e6f;
+}
