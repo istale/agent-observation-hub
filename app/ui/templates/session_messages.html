@@ -17,15 +17,126 @@
     </p>
     <details class="help-block">
       <summary>怎麼用這頁（第一次來必看）</summary>
-      <p>把它想成「桌面整理」：</p>
-      <ul>
-        <li><span class="mark-badge mark-active">active</span> 預設。訊息正常參與 conversation。</li>
-        <li><span class="mark-badge mark-background">background</span> 不是當下重點，但保留——「收進抽屜」。UI 會把它變淡。</li>
-        <li><span class="mark-badge mark-stale">stale</span> 已過時，但留著供 audit。UI 加刪除線。</li>
-        <li><span class="mark-badge mark-hidden">hidden</span> 預設折疊，點開才看得到內容。「移到角落」。</li>
-      </ul>
-      <p><strong>標記不會改原 JSONL 檔。</strong>之後若 Pi 端整合（未來 Cut），它會在送 model 前用 overlay 來降權標 background/stale 的訊息。目前先當「視覺整理工具」用。</p>
-      <p><strong>Note</strong>：對任何訊息加一段你自己的註解（例如「這次決定後面都還在用」「這個 tool 用法是錯的」）。同樣不會改原訊息，只是提醒未來的你。</p>
+      <p>把它想成「桌面整理」。所有標記都是<strong>視覺整理</strong>——原 JSONL 不會被改、訊息永遠還在那裡。差別只在「你眼睛和心思要不要分心去看」。</p>
+
+      <table class="mark-table">
+        <thead>
+          <tr><th>標記</th><th>桌面比喻</th><th>UI 怎麼顯示</th><th>Model 受影響嗎</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="mark-badge mark-active">🟢 active</span></td>
+            <td>「在你面前」</td>
+            <td>正常顯示</td>
+            <td>✅ 原本就會被讀</td>
+          </tr>
+          <tr>
+            <td><span class="mark-badge mark-background">🟡 background</span></td>
+            <td>「收進抽屜」</td>
+            <td>半透明、變淡（55%）</td>
+            <td>❌ MVP 還沒整合</td>
+          </tr>
+          <tr>
+            <td><span class="mark-badge mark-stale">🔴 stale</span></td>
+            <td>「移到角落、貼過期標籤」</td>
+            <td>紅底、刪除線</td>
+            <td>❌ MVP 還沒整合</td>
+          </tr>
+          <tr>
+            <td><span class="mark-badge mark-hidden">⚪ hidden</span></td>
+            <td>「塞進抽屜深處」</td>
+            <td>折疊、點才看</td>
+            <td>❌ MVP 還沒整合</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <details class="help-block">
+        <summary>四個標記的詳細用法（什麼時候該用哪個？）</summary>
+
+        <h4>🟢 active（預設）</h4>
+        <p><strong>意思</strong>：「這條訊息現在還是主軸的一部分」</p>
+        <p><strong>何時用</strong>：</p>
+        <ul>
+          <li>預設狀態，不用特別動</li>
+          <li>之前被你標 background/stale 但又重新變成焦點 → 改回 active</li>
+        </ul>
+        <p><strong>例子</strong>：使用者問「幫我看 auth.py 的 bug」→ 整段討論都是 active</p>
+
+        <h4>🟡 background（最常用）</h4>
+        <p><strong>意思</strong>：「這個對話分支現在不是重點，但<strong>還沒結束</strong>、之後可能還會回頭看」</p>
+        <p><strong>何時用</strong>：</p>
+        <ul>
+          <li>多話題對話：你早上問了 A，下午轉去問 B，A 那段標 background</li>
+          <li>不是錯的、不是過時，<strong>只是現在不關心</strong></li>
+          <li>像桌上的文件你還沒做完，但暫時推到旁邊</li>
+        </ul>
+        <p><strong>例子</strong>：早上 t1~t4 在討論 database schema → 下午轉成寫 API → 把 t1~t4 標 background。t1~t4 還在抽屜，你需要時打開來看；UI 變淡讓你眼睛專注在當下的 API 任務。</p>
+        <p><strong>跟 stale 的差別</strong>：background = 「還活著、只是暫時不關心」；stale = 「死了/過時」</p>
+
+        <h4>🔴 stale（明確標示過時/錯誤）</h4>
+        <p><strong>意思</strong>：「這條訊息<strong>已經不適用</strong>了，但我留著當紀錄 / 不想真的刪掉」</p>
+        <p><strong>何時用</strong>：</p>
+        <ul>
+          <li>早期的決定被後面推翻了（model 做了錯的選擇、後面修正）</li>
+          <li>你發現某個 tool 結果是錯的，後面才用對的方式</li>
+          <li>某段討論基於錯誤前提，但你想保留證據</li>
+        </ul>
+        <p><strong>例子</strong>：</p>
+        <ul>
+          <li>t2: assistant 說「用 vector DB」 → t5: 你說「不要 vector，用 grep」 → 把 t2 標 stale</li>
+          <li>t3: bash 跑錯路徑、結果不對 → 改為 stale 提醒自己這個 result 不可信</li>
+        </ul>
+        <p><strong>視覺上</strong>：紅底 + 刪除線 → 一眼看到「這條被否決過」</p>
+        <p><strong>跟 background 的差別</strong>：background 是「暫時不看」；stale 是「<strong>永遠不適用</strong>了，但留著」</p>
+        <p><strong>跟刪除的差別</strong>：你<strong>沒真的刪</strong>——之後想看 stale 訊息還是可以滑回去看，只是視覺上被否決掉</p>
+
+        <h4>⚪ hidden（清掉視覺干擾）</h4>
+        <p><strong>意思</strong>：「這條訊息我<strong>根本不想看到</strong>，預設折疊起來」</p>
+        <p><strong>何時用</strong>：</p>
+        <ul>
+          <li>又長又無聊（例如某個 tool 吐了 500 行 stdout、你都看過了）</li>
+          <li>你已經消化過、不需要再看，但要保留證據</li>
+          <li>大量重複資訊（例如連續 10 個 grep 結果）</li>
+        </ul>
+        <p><strong>例子</strong>：</p>
+        <ul>
+          <li>t6 是 <code>bash</code> 吐了 300 行 file listing → hidden，眼睛不用受罪</li>
+          <li>t4 是一段 model 的長 thinking，已經看過 → hidden 折疊</li>
+        </ul>
+        <p><strong>視覺上</strong>：card 預設折疊，點開才看內容</p>
+        <p><strong>跟 stale 的差別</strong>：stale 是「<strong>內容過時</strong>了」；hidden 是「<strong>內容沒過時但我看夠了</strong>」</p>
+        <p><strong>跟 background 的差別</strong>：background 是「半透明還看得到」；hidden 是「徹底折疊」</p>
+      </details>
+
+      <details class="help-block">
+        <summary>快速決策樹（不知道該選哪個？）</summary>
+        <pre class="flow-diagram">這條訊息對我現在重要嗎？
+  ├ 是 → 🟢 active
+  └ 否 → 為什麼不重要？
+         ├ 它過時 / 被推翻了    → 🔴 stale
+         ├ 它太長太煩、看夠了    → ⚪ hidden
+         └ 暫時不關心，之後可能用 → 🟡 background</pre>
+      </details>
+
+      <details class="help-block">
+        <summary>整理過的桌面長什麼樣（範例）</summary>
+        <p>假設你開了 7 個 turn 的 session：</p>
+        <pre class="flow-diagram">🟢 t0: user      "幫我看 auth.py 的 bug"          ← 主任務
+🟡 t1: assistant 提到 database schema 改進         ← 收進抽屜（之後再做）
+🟡 t2: tool      database 結構 dump (300 行)
+🔴 t3: assistant "用 OAuth refresh"                ← 後來發現是錯的
+⚪ t4: tool      OAuth library 文件 (200 行)       ← 看過了，折疊
+🟢 t5: user      "OAuth 不對，是 JWT"              ← 主任務修正
+🟢 t6: assistant "找到 JWT bug 了"                 ← 主任務結論</pre>
+        <p>你的眼睛會自然集中在 t0/t5/t6 三個 active 行——那才是「現在的主軸」。其他被你「收進桌子的不同位置」、但都還在桌上。</p>
+      </details>
+
+      <hr style="border:0;border-top:1px solid #d9dde3;margin:12px 0;">
+
+      <p><strong>關於 Note</strong>：對任何訊息加一段你自己的註解（例如「這次決定後面都還在用」「這個 tool 用法是錯的」）。同樣不會改原訊息，只是提醒未來的你。</p>
+
+      <p><strong>⚠ MVP 限制</strong>：目前所有標記只影響 hub UI，<strong>不影響 model 的行為</strong>。換句話說：你 stale 一條訊息，model 下次 resume 還是會看到它——因為 Pi 還沒被改成「讀 overlay → 注入 model 前降權」。這是有意的設計：先確認你會用、用法符合預期，再決定要不要動 Pi 端讓標記真的有「執行效果」。</p>
     </details>
     {% if not meta %}
       <p class="muted">找不到 session JSONL 檔。可能原因：1) session_id 不對；2) Pi 跑在不同機器上；3) <code>~/.pi/agent/sessions/</code> 路徑非預設（可用環境變數 <code>AOH_PI_SESSIONS_DIR</code> 覆寫）。</p>

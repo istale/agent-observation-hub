@@ -614,3 +614,18 @@ details.agent-event-tool_execution_update::before {
   cursor: pointer;
 }
 .chip-memory:hover { background: #f0d8f0; }
+
+/* Memory Editing: mark explanation table */
+table.mark-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+table.mark-table th, table.mark-table td {
+  border: 1px solid #e1e5e8;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+table.mark-table th { background: #f4f7fa; }
