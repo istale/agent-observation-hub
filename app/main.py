@@ -7,6 +7,7 @@ import asyncio
 
 from app.api.agent_events import router as agent_events_router
 from app.api.constraints import router as constraints_router
+from app.api.session_messages import router as session_messages_router
 from app.config import get_settings
 from app.observation_tailer import run_tailer
 from app.api.correlations import router as correlations_router
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(raw_router)
     app.include_router(agent_events_router)
     app.include_router(constraints_router)
+    app.include_router(session_messages_router)
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
@@ -94,6 +96,23 @@ def create_app() -> FastAPI:
             r["diff_count"] = diff_count
         constraints = repo.list_pinned_constraints()
         return templates.TemplateResponse(request, "index.html", {"runs": runs, "constraints": constraints})
+
+    @app.get("/sessions/{session_id}/messages", response_class=HTMLResponse)
+    def session_messages_page(request: Request, session_id: str):
+        from app.pi_session_reader import read_messages, session_metadata
+        meta = session_metadata(session_id)
+        messages = read_messages(session_id) if meta else []
+        if meta:
+            overlays = Repository.from_env().list_message_overlays(session_id)
+            for m in messages:
+                ov = overlays.get(m["index"])
+                m["mark"] = ov["mark"] if ov else "active"
+                m["note"] = ov["note"] if ov else None
+        return templates.TemplateResponse(request, "session_messages.html", {
+            "session_id": session_id,
+            "meta": meta,
+            "messages": messages,
+        })
 
     @app.get("/diff/{trace_id}", response_class=HTMLResponse)
     def payload_diff_page(request: Request, trace_id: str):

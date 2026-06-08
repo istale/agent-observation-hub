@@ -50,7 +50,9 @@
     </table>
     <h2>Agent Events
       <span class="help-inline" title="Pi agent runtime 內部發出的事件流，按時間順序排列。可以重現一次使用者輸入 → 模型回應的完整推理過程。">ⓘ</span>
-      {% if session_id %}<span class="muted small" title="這是 Pi agent session 的識別碼。一個 session 可能包含多次使用者輸入與多次 model 呼叫，都會聚合在同一頁顯示。">session {{ session_id }}</span>{% endif %}
+      {% if session_id %}<span class="muted small" title="這是 Pi agent session 的識別碼。一個 session 可能包含多次使用者輸入與多次 model 呼叫，都會聚合在同一頁顯示。">session {{ session_id }}</span>
+        <a href="/sessions/{{ session_id }}/messages" class="raw-diff-link" title="開啟 Memory Editing：看這個 session 的所有 messages，標記 background/stale/hidden 或加 note。原 JSONL 不會被改。">[🗂 Memory Editing ↗]</a>
+      {% endif %}
     </h2>
     <p class="help-section-intro">
       下方按時間順序顯示 Pi 從使用者輸入到 model 回應之間經歷的每個 <strong>stage</strong>。每一個 stage 都是 Pi 內部一個函式邊界的快照。色塊代表事件分類：

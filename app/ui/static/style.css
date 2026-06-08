@@ -514,3 +514,103 @@ details.agent-event-tool_execution_update::before {
   border-radius: 3px;
 }
 .diff-explanation.small { font-size: 11px; padding: 2px 6px; margin: 1px 0 1px 4px; }
+
+/* --- Memory Editing UI (MEU) --- */
+.memory-msg {
+  border: 1px solid #dce1e4;
+  border-radius: 6px;
+  background: white;
+  padding: 12px 14px;
+  border-left: 4px solid #888;
+  transition: opacity 0.2s, background 0.2s;
+}
+.memory-msg-user      { border-left-color: #2e8b57; }
+.memory-msg-assistant { border-left-color: #4682b4; }
+.memory-msg-toolResult, .memory-msg-tool { border-left-color: #d2691e; }
+
+.memory-msg.memory-mark-background {
+  opacity: 0.55;
+  background: #f5f6f8;
+}
+.memory-msg.memory-mark-stale {
+  opacity: 0.6;
+  background: #f8eeed;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: #b02a37;
+}
+.memory-msg.memory-mark-stale .memory-msg-body,
+.memory-msg.memory-mark-stale .memory-msg-note,
+.memory-msg.memory-mark-stale select,
+.memory-msg.memory-mark-stale .memory-msg-mark-row { text-decoration: none; }
+.memory-msg.memory-mark-hidden {
+  background: #fafbfc;
+  opacity: 0.7;
+}
+
+.memory-msg-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.msg-index { font-family: monospace; }
+.memory-msg-mark-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 4px 0 6px 0;
+}
+.mark-select {
+  padding: 3px 6px;
+  border: 1px solid #cbd0d4;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+}
+.mark-saved-indicator, .note-saved-indicator { font-size: 11px; }
+.memory-msg-body summary { cursor: pointer; font-size: 12px; color: #555; }
+.memory-msg-body pre {
+  font-size: 12px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 6px 0;
+}
+.memory-msg-note { margin-top: 6px; }
+.memory-msg-note textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px dashed #bbb;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 12px;
+  background: #fffbe8;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.memory-msg-note textarea:focus {
+  border-color: #2e8b57;
+  border-style: solid;
+  outline: none;
+}
+
+.mark-badge {
+  font-family: monospace;
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.mark-badge.mark-active     { background: #e7f5ec; color: #145a2d; }
+.mark-badge.mark-background { background: #eef1f4; color: #5a6c7d; }
+.mark-badge.mark-stale      { background: #fbe2dd; color: #9d2a1c; }
+.mark-badge.mark-hidden     { background: #f5e6f5; color: #6a2e6a; }
+
+.chip-memory {
+  background: #faf0fa;
+  border-color: #d8b3d8;
+  text-decoration: none;
+  cursor: pointer;
+}
+.chip-memory:hover { background: #f0d8f0; }

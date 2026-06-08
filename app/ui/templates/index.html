@@ -108,6 +108,7 @@
             {% if sc.get('before_provider_payload') %}<span class="chip chip-llm" title="這個 session 對 LLM 發起過 {{ sc.before_provider_payload }} 次呼叫">🤖 {{ sc.before_provider_payload }}</span>{% endif %}
             {% if sc.get('tool_call') %}<span class="chip chip-tool" title="這個 session 觸發過 {{ sc.tool_call }} 次 tool 呼叫（read/bash/edit/write 等）">🔧 {{ sc.tool_call }}</span>{% endif %}
             {% if run.diff_count %}<span class="chip chip-diff" title="這次 LLM 呼叫的 provider adapter 跟 agent 內部 context 比，有 {{ run.diff_count }} 個改動（加 system / strip metadata / 換 role 等）">Δ {{ run.diff_count }}</span>{% endif %}
+            {% if run.session_id and run.session_id != 'unknown' %}<a href="/sessions/{{ run.session_id }}/messages" class="chip chip-memory" title="開啟 Memory Editing UI：標記 / 註解這個 session 的訊息（不改原 JSONL）">🗂</a>{% endif %}
           </td>
         </tr>
       {% endfor %}

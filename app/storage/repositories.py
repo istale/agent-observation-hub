@@ -284,6 +284,59 @@ class Repository:
                 ).fetchall()
         return [dict(row) for row in rows]
 
+    # ----- MEU: session message overlays (soft marks + notes) -----
+    _UNSET = object()  # type: ignore[assignment]
+
+    def set_message_overlay(self, session_id: str, message_index: int, mark: Any = _UNSET, note: Any = _UNSET) -> dict[str, Any]:
+        """Upsert mark and/or note for one message.
+
+        Sentinel semantics:
+          - kwarg not passed (or == _UNSET) → keep existing value
+          - kwarg == None                    → clear the field
+          - kwarg == "mark/note string"      → set to that value
+        """
+        valid_marks = {"active", "background", "stale", "hidden"}
+        if mark is not Repository._UNSET and mark is not None and mark not in valid_marks:
+            raise ValueError(f"invalid mark: {mark}")
+        with db_connection(self.db_path) as conn:
+            existing = conn.execute(
+                "SELECT mark, note FROM session_message_overlays WHERE session_id = ? AND message_index = ?",
+                (session_id, message_index),
+            ).fetchone()
+            if mark is Repository._UNSET:
+                new_mark = existing["mark"] if existing else "active"
+            else:
+                new_mark = mark if mark is not None else "active"
+            if note is Repository._UNSET:
+                new_note = existing["note"] if existing else None
+            else:
+                new_note = note  # may be None (clear) or a string
+            conn.execute(
+                """
+                INSERT INTO session_message_overlays (session_id, message_index, mark, note, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(session_id, message_index) DO UPDATE SET
+                  mark = excluded.mark,
+                  note = excluded.note,
+                  updated_at = excluded.updated_at
+                """,
+                (session_id, message_index, new_mark, new_note),
+            )
+            row = conn.execute(
+                "SELECT * FROM session_message_overlays WHERE session_id = ? AND message_index = ?",
+                (session_id, message_index),
+            ).fetchone()
+        return dict(row)
+
+    def list_message_overlays(self, session_id: str) -> dict[int, dict[str, Any]]:
+        """Return a map of message_index -> overlay row for the session."""
+        with db_connection(self.db_path) as conn:
+            rows = conn.execute(
+                "SELECT * FROM session_message_overlays WHERE session_id = ? ORDER BY message_index",
+                (session_id,),
+            ).fetchall()
+        return {int(r["message_index"]): dict(r) for r in rows}
+
     def delete_pinned_constraint(self, constraint_id: str) -> int:
         with db_connection(self.db_path) as conn:
             cur = conn.execute("DELETE FROM pinned_constraints WHERE id = ?", (constraint_id,))

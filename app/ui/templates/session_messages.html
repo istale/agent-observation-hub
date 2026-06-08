@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <title>Session {{ session_id }} · Memory Editing</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="wide">
+    <p><a href="/">← 回首頁</a></p>
+    <h1>Memory Editing
+      <span class="muted small" title="Pi session 的 UUID（在 ~/.pi/agent/sessions/ 找得到對應 JSONL 檔）">{{ session_id }}</span>
+    </h1>
+    <p class="help-section-intro">
+      列出這個 session 的所有 messages（從 Pi 的 session JSONL 讀來）。
+      <strong>原始 JSONL 不會被修改</strong>——你的標記與筆記存在 hub 的 SQLite，作為一層 overlay。
+    </p>
+    <details class="help-block">
+      <summary>怎麼用這頁（第一次來必看）</summary>
+      <p>把它想成「桌面整理」：</p>
+      <ul>
+        <li><span class="mark-badge mark-active">active</span> 預設。訊息正常參與 conversation。</li>
+        <li><span class="mark-badge mark-background">background</span> 不是當下重點，但保留——「收進抽屜」。UI 會把它變淡。</li>
+        <li><span class="mark-badge mark-stale">stale</span> 已過時，但留著供 audit。UI 加刪除線。</li>
+        <li><span class="mark-badge mark-hidden">hidden</span> 預設折疊，點開才看得到內容。「移到角落」。</li>
+      </ul>
+      <p><strong>標記不會改原 JSONL 檔。</strong>之後若 Pi 端整合（未來 Cut），它會在送 model 前用 overlay 來降權標 background/stale 的訊息。目前先當「視覺整理工具」用。</p>
+      <p><strong>Note</strong>：對任何訊息加一段你自己的註解（例如「這次決定後面都還在用」「這個 tool 用法是錯的」）。同樣不會改原訊息，只是提醒未來的你。</p>
+    </details>
+    {% if not meta %}
+      <p class="muted">找不到 session JSONL 檔。可能原因：1) session_id 不對；2) Pi 跑在不同機器上；3) <code>~/.pi/agent/sessions/</code> 路徑非預設（可用環境變數 <code>AOH_PI_SESSIONS_DIR</code> 覆寫）。</p>
+    {% else %}
+      <p class="muted small">
+        <span title="Pi session 啟動時的工作目錄">cwd</span>: <code>{{ meta.cwd }}</code> ·
+        <span title="session 啟動時間">started</span>: {{ meta.started_at }} ·
+        <span title="JSONL 在本機磁碟的實際路徑">jsonl</span>: <code>{{ meta.jsonl_path }}</code>
+      </p>
+      <p class="muted small">共 {{ messages | length }} 則 messages</p>
+      <div class="stack" id="message-list">
+        {% for m in messages %}
+          <div class="memory-msg memory-msg-{{ m.role }} memory-mark-{{ m.mark }}" data-index="{{ m.index }}" data-role="{{ m.role }}">
+            <div class="memory-msg-head">
+              <span class="msg-index muted small" title="message 在 session 內的順序（0-based）">#{{ m.index }}</span>
+              <span class="role-tag role-{{ m.role }}" title="user / assistant / toolResult">{{ m.role }}</span>
+              {% if m.has_thinking %}<span class="badge" title="這則 assistant message 包含 thinking blocks（model 內部推理紀錄）">🧠</span>{% endif %}
+              {% if m.has_tool_call %}<span class="badge" title="這則 assistant message 觸發了 tool 呼叫">🔧</span>{% endif %}
+              {% if m.tool_name %}<span class="muted small">tool: <code>{{ m.tool_name }}</code></span>{% endif %}
+              {% if m.model %}<span class="muted small">model: <code>{{ m.model }}</code></span>{% endif %}
+              {% if m.stop_reason %}<span class="muted small">stop: <code>{{ m.stop_reason }}</code></span>{% endif %}
+              <span class="muted small" style="margin-left:auto">{{ m.timestamp }}</span>
+            </div>
+            <div class="memory-msg-mark-row">
+              <label class="muted small" title="改變此訊息的 focus 標記">標記：</label>
+              <select class="mark-select" onchange="setMark('{{ session_id }}', {{ m.index }}, this.value, this)">
+                <option value="active"     {% if m.mark == 'active' %}selected{% endif %}>active</option>
+                <option value="background" {% if m.mark == 'background' %}selected{% endif %}>background（收進抽屜）</option>
+                <option value="stale"      {% if m.mark == 'stale' %}selected{% endif %}>stale（過時但保留）</option>
+                <option value="hidden"     {% if m.mark == 'hidden' %}selected{% endif %}>hidden（折疊）</option>
+              </select>
+              <span class="mark-saved-indicator muted small"></span>
+            </div>
+            <details class="memory-msg-body" {% if m.mark != 'hidden' %}open{% endif %}>
+              <summary>內容（{{ m.text | length }} chars{% if m.has_thinking %} · 含 thinking blocks{% endif %}）</summary>
+              <pre class="readable">{{ m.text }}</pre>
+            </details>
+            <div class="memory-msg-note">
+              <textarea
+                class="note-input"
+                placeholder="加一段你自己的註解（例如『這個決定後面都還在用』）。失焦或按 Ctrl+S 自動存。"
+                onblur="setNote('{{ session_id }}', {{ m.index }}, this.value, this)"
+                onkeydown="if((event.ctrlKey || event.metaKey) && event.key === 's') { event.preventDefault(); this.blur(); }"
+              >{{ m.note or '' }}</textarea>
+              <span class="note-saved-indicator muted small"></span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    <script>
+      function showSaved(el, msg) {
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = '#1e7e34';
+        setTimeout(() => { el.textContent = ''; }, 2000);
+      }
+      function showError(el, msg) {
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = '#b02a37';
+      }
+      async function setMark(sid, idx, mark, selectEl) {
+        const card = selectEl.closest('.memory-msg');
+        const indicator = card.querySelector('.mark-saved-indicator');
+        try {
+          const resp = await fetch(`/api/sessions/${sid}/messages/${idx}/mark`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({mark}),
+          });
+          if (!resp.ok) throw new Error(await resp.text());
+          card.className = card.className.replace(/memory-mark-[a-z]+/, '') + ' memory-mark-' + mark;
+          showSaved(indicator, '✓ 已存');
+          // Re-toggle body open/close: hidden -> collapsed
+          const body = card.querySelector('.memory-msg-body');
+          if (body) body.open = (mark !== 'hidden');
+        } catch (e) {
+          showError(indicator, 'failed: ' + e);
+        }
+      }
+      async function setNote(sid, idx, note, textareaEl) {
+        const card = textareaEl.closest('.memory-msg');
+        const indicator = card.querySelector('.note-saved-indicator');
+        try {
+          const resp = await fetch(`/api/sessions/${sid}/messages/${idx}/note`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({note}),
+          });
+          if (!resp.ok) throw new Error(await resp.text());
+          showSaved(indicator, '✓ note 已存');
+        } catch (e) {
+          showError(indicator, 'failed: ' + e);
+        }
+      }
+    </script>
+  </main>
+</body>
+</html>
