@@ -7,6 +7,7 @@ import asyncio
 
 from app.api.agent_events import router as agent_events_router
 from app.api.constraints import router as constraints_router
+from app.api.assertions import router as assertions_router
 from app.api.session_messages import router as session_messages_router
 from app.config import get_settings
 from app.observation_tailer import run_tailer
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
     app.include_router(agent_events_router)
     app.include_router(constraints_router)
     app.include_router(session_messages_router)
+    app.include_router(assertions_router)
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
