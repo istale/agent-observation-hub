@@ -180,6 +180,69 @@ def test_schema_version_is_present_and_int(app_client):
 
 # ---------- error resilience ----------
 
+# ---------- overlay_applied event shaper (Step 10 UI plumbing) ----------
+
+def test_overlay_applied_shaper_extracts_counts_and_preview():
+    from app.agent_event_views import enrich_events
+
+    events = [{
+        "stage": "overlay_applied",
+        "payload_inline": json.dumps({
+            "session_id": "sess-x",
+            "overlay_count": 4,
+            "hidden_count": 2,
+            "background_count": 1,
+            "stale_count": 1,
+            "applied_indices": [1, 3, 5, 7],
+            "annotation_chars": 300,
+            "annotation_preview": "The user has annotated...",
+            "system_prompt_chars_before": 3100,
+            "system_prompt_chars_after": 3400,
+        }),
+        "payload_ref": None,
+    }]
+    view = enrich_events(events)[0]["view"]
+    assert view["kind"] == "overlay_applied"
+    assert view["session_id"] == "sess-x"
+    assert view["overlay_count"] == 4
+    assert view["hidden_count"] == 2
+    assert view["background_count"] == 1
+    assert view["stale_count"] == 1
+    assert view["applied_indices"] == [1, 3, 5, 7]
+    assert view["system_prompt_chars_delta"] == 300
+    assert view["annotation_preview"].startswith("The user")
+
+
+def test_overlay_applied_shaper_marks_preview_truncated_when_chars_exceed_preview():
+    from app.agent_event_views import enrich_events
+
+    events = [{
+        "stage": "overlay_applied",
+        "payload_inline": json.dumps({
+            "annotation_chars": 1500,
+            "annotation_preview": "x" * 1200,
+        }),
+        "payload_ref": None,
+    }]
+    view = enrich_events(events)[0]["view"]
+    assert view["annotation_preview_truncated"] is True
+
+
+def test_overlay_applied_shaper_handles_no_preview_truncation():
+    from app.agent_event_views import enrich_events
+
+    events = [{
+        "stage": "overlay_applied",
+        "payload_inline": json.dumps({
+            "annotation_chars": 200,
+            "annotation_preview": "x" * 200,
+        }),
+        "payload_ref": None,
+    }]
+    view = enrich_events(events)[0]["view"]
+    assert view["annotation_preview_truncated"] is False
+
+
 def test_snapshot_write_failure_does_not_break_api(app_client, tmp_path, monkeypatch):
     """If the snapshot directory becomes unwritable mid-session, the
     POST mark API should still return 200 (write to SQLite succeeds);

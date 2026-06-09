@@ -323,7 +323,39 @@
             <span class="muted small" title="事件發生時間（台北時區）">{{ ev.ts | taipei_time if ev.ts else '' }}</span>
             <span class="muted small" title="這個事件是從 Pi 哪個檔案 emit 出來的，方便去 source code 對照">{{ ev.source_module or '' }}</span>
           </summary>
-          {% if ev.view.kind == 'convert_to_llm' %}
+          {% if ev.view.kind == 'overlay_applied' %}
+            <p class="muted">
+              <span title="使用者在 Memory Editing UI 標的 mark 影響了這次呼叫——共套用了多少筆 overlay">🗂 Overlay 已套用</span> ·
+              共 <strong>{{ ev.view.overlay_count }}</strong> 筆
+              {% if ev.view.stale_count %}<span class="mark-badge mark-stale" title="標記為 stale，會在 system prompt 加註">🔴 {{ ev.view.stale_count }}</span>{% endif %}
+              {% if ev.view.background_count %}<span class="mark-badge mark-background" title="標記為 background，會在 system prompt 加註">🟡 {{ ev.view.background_count }}</span>{% endif %}
+              {% if ev.view.hidden_count %}<span class="mark-badge mark-hidden" title="標記為 hidden，內容被換成 tombstone + 在 system prompt 加註">⚪ {{ ev.view.hidden_count }}</span>{% endif %}
+            </p>
+            <p class="muted small">
+              <span title="這次套用 overlay 後 system prompt 變多少字（含原 system prompt + annotation）">system prompt 字數</span>:
+              {{ ev.view.system_prompt_chars_before }} → <strong>{{ ev.view.system_prompt_chars_after }}</strong>
+              <span class="muted" title="annotation 加了多少字">(+{{ ev.view.system_prompt_chars_delta }})</span> ·
+              <span title="被影響的訊息在 session 內的 0-based 序號">indices</span>:
+              {% for idx in ev.view.applied_indices %}<code>{{ idx }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+              {% if ev.view.session_id %}
+                · <a href="/sessions/{{ ev.view.session_id }}/messages" title="開啟 Memory Editing UI 看 / 改這些 mark">🗂 Memory Editing ↗</a>
+              {% endif %}
+            </p>
+            <details>
+              <summary class="muted small">看注入 system prompt 的 annotation 全文 ({{ ev.view.annotation_chars }} chars)</summary>
+              <pre class="readable overlay-annotation-preview">{{ ev.view.annotation_preview }}{% if ev.view.annotation_preview_truncated %}…{% endif %}</pre>
+            </details>
+            <details class="help-block">
+              <summary>什麼是 Overlay？ Mark 怎麼影響 model？</summary>
+              <p>使用者在 <strong>Memory Editing UI</strong> 對訊息標 mark 時，hub 寫一份 snapshot 檔到
+              <code>~/.pi/observation/overlays/&lt;sid&gt;.json</code>。Pi 在<strong>每次 model 呼叫前</strong>讀這個檔，做兩件事：</p>
+              <ol>
+                <li><strong>Hidden</strong> 標記的訊息：內容被換成 <code>[content elided by user; see annotation in system prompt for context]</code>（保留 role / toolCallId / toolName 確保 tool pairing 不斷）。</li>
+                <li>所有 marks（stale / background / hidden）：用一段 annotation 文字描述「使用者標了哪幾筆、為什麼」，<strong>加到 system prompt 後面</strong>。</li>
+              </ol>
+              <p>這就是 backlog 裡記的「混合方案」(Anthropic-style system prepend + hidden tombstone)：annotation 集中放、訊息原文不動，只有 hidden 才省 token。</p>
+            </details>
+          {% elif ev.view.kind == 'convert_to_llm' %}
             <p class="muted">
               <span title="把 agent 內部的 AgentMessage 陣列轉成 LLM provider 用的 Message 陣列。這層發生在 context 事件之前。">🔄 convertToLlm</span> ·
               {{ ev.view.input_count }} → {{ ev.view.output_count }} 訊息

@@ -137,6 +137,26 @@ def _shape_system_prompt_assembled(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _shape_overlay_applied(payload: dict[str, Any]) -> dict[str, Any]:
+    annotation_preview = payload.get("annotation_preview") or ""
+    preview_truncated = (payload.get("annotation_chars") or 0) > len(annotation_preview)
+    return {
+        "kind": "overlay_applied",
+        "session_id": payload.get("session_id"),
+        "overlay_count": int(payload.get("overlay_count") or 0),
+        "hidden_count": int(payload.get("hidden_count") or 0),
+        "background_count": int(payload.get("background_count") or 0),
+        "stale_count": int(payload.get("stale_count") or 0),
+        "applied_indices": payload.get("applied_indices") or [],
+        "annotation_chars": int(payload.get("annotation_chars") or 0),
+        "annotation_preview": annotation_preview,
+        "annotation_preview_truncated": preview_truncated,
+        "system_prompt_chars_before": int(payload.get("system_prompt_chars_before") or 0),
+        "system_prompt_chars_after": int(payload.get("system_prompt_chars_after") or 0),
+        "system_prompt_chars_delta": int(payload.get("system_prompt_chars_after") or 0) - int(payload.get("system_prompt_chars_before") or 0),
+    }
+
+
 def _shape_convert_to_llm(payload: dict[str, Any]) -> dict[str, Any]:
     in_count = int(payload.get("input_message_count") or 0)
     out_count = int(payload.get("output_message_count") or 0)
@@ -501,6 +521,7 @@ SHAPERS = {
     "session_reloaded": _shape_session_reloaded,
     "convert_to_llm": _shape_convert_to_llm,
     "tool_execution_update": _shape_tool_execution_update,
+    "overlay_applied": _shape_overlay_applied,
 }
 
 

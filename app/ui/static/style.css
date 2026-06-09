@@ -629,3 +629,14 @@ table.mark-table th, table.mark-table td {
   vertical-align: top;
 }
 table.mark-table th { background: #f4f7fa; }
+
+/* Overlay applied event */
+details.agent-event-overlay_applied { border-left-color: #ba55d3; }
+pre.overlay-annotation-preview {
+  background: #faf5fc;
+  border: 1px solid #e0c8e8;
+  border-left: 3px solid #ba55d3;
+  font-size: 12px;
+  max-height: 240px;
+  overflow: auto;
+}
