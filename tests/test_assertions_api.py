@@ -53,6 +53,27 @@ def test_assertions_overlay_detects_inconsistency(app_client):
     assert body["consistent"] is False
 
 
+def test_assertions_overlay_detects_triple_drift(app_client):
+    """Length matches but a triple differs → consistent=False + drift listed.
+
+    Simulates the bug where AI agent regression would have falsely PASSed:
+    DB says (0, "stale", None) but snapshot writer kept stale (0, "background", None).
+    """
+    import json
+    from app.config import get_settings
+    app_client.post("/api/sessions/sid-drift/messages/0/mark", json={"mark": "stale"})
+    snap = get_settings().observation_dir / "overlays" / "sid-drift.json"
+    body = json.loads(snap.read_text())
+    body["overlays"][0]["mark"] = "background"  # tamper to simulate drift
+    snap.write_text(json.dumps(body))
+
+    resp = app_client.get("/api/assertions/overlay/sid-drift").json()
+    assert resp["consistent"] is False
+    sides = {(d["side"], d["mark"]) for d in resp["drift"]}
+    assert ("db_only", "stale") in sides
+    assert ("snapshot_only", "background") in sides
+
+
 # ---------- /api/assertions/overlay-applied/{sid} ----------
 
 def test_assertions_overlay_applied_lists_events(app_client):

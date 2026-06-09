@@ -64,6 +64,36 @@ def overlay_state(session_id: str) -> dict[str, Any]:
     repo_overlays = Repository.from_env().list_message_overlays(session_id)
     snapshot = _overlay_snapshot(session_id)
     non_active = {idx: ov for idx, ov in repo_overlays.items() if ov.get("mark") != "active"}
+
+    # Deep consistency: compare (index, mark, note) triples between DB
+    # non-active rows and snapshot.overlays. A length-only check would
+    # silently PASS when e.g. a mark flipped stale→background but the
+    # snapshot writer failed mid-way and kept the old triple — exactly
+    # the kind of drift AI-driven regression must catch.
+    def _triples_from_db() -> set[tuple[int, str, str | None]]:
+        return {(int(idx), ov["mark"], ov.get("note")) for idx, ov in non_active.items()}
+
+    def _triples_from_snapshot() -> set[tuple[int, str, str | None]]:
+        if snapshot is None:
+            return set()
+        out: set[tuple[int, str, str | None]] = set()
+        for o in snapshot.get("overlays", []) or []:
+            out.add((int(o.get("index")), o.get("mark"), o.get("note")))
+        return out
+
+    db_triples = _triples_from_db()
+    snap_triples = _triples_from_snapshot()
+    if snapshot is None:
+        consistent = len(non_active) == 0
+        drift: list[dict[str, Any]] = []
+    else:
+        consistent = db_triples == snap_triples
+        drift = []
+        for missing in sorted(db_triples - snap_triples):
+            drift.append({"side": "db_only", "index": missing[0], "mark": missing[1], "note": missing[2]})
+        for extra in sorted(snap_triples - db_triples):
+            drift.append({"side": "snapshot_only", "index": extra[0], "mark": extra[1], "note": extra[2]})
+
     return {
         "session_id": session_id,
         "db": {
@@ -79,13 +109,8 @@ def overlay_state(session_id: str) -> dict[str, Any]:
             "path": str(get_settings().observation_dir / "overlays" / f"{session_id}.json"),
             "content": snapshot,
         },
-        "consistent": (
-            (snapshot is None and len(non_active) == 0)
-            or (
-                snapshot is not None
-                and len(snapshot.get("overlays", [])) == len(non_active)
-            )
-        ),
+        "consistent": consistent,
+        "drift": drift,
     }
 
 
