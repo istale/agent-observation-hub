@@ -85,6 +85,56 @@ scripts/dev.sh
 
 Open the UI at `http://127.0.0.1:43180/`.
 
+## Pi + Hub 最新功能組合（Cut 6 + Memory Editing + Overlay 注入）
+
+要跑全套（Cut 6 全層級觀測 + Memory Editing UI + Overlay 混合方案 + `/api/assertions/*` 回歸 API），請用以下分支配對。兩邊都是線性堆疊，挑最新即可：
+
+| Repo | Branch |
+|---|---|
+| **hub**（本 repo） | `feature/overlay-snapshot` |
+| **pi（fork）** | `feature/overlay-injection` |
+
+啟動順序：
+
+```sh
+# 1. 起 hub（port 43180）
+cd repos/hub
+git checkout feature/overlay-snapshot
+scripts/init_db.sh
+scripts/dev.sh
+
+# 2. build pi（另一個 terminal）
+cd repos/pi
+git checkout feature/overlay-injection
+pnpm -C packages/coding-agent build
+
+# 3. 跑 pi —— 必須從建立 session 的同一個 cwd 起，否則 pi 會問
+#    「Fork into current directory? [y/N]」並卡住
+node packages/coding-agent/dist/cli.js \
+  -p "your prompt" \
+  --model minimax-via-hub/MiniMax-M2.7
+```
+
+開啟 UI：
+
+- 主控台：`http://127.0.0.1:43180/`
+- Memory Editing：`http://127.0.0.1:43180/sessions/<session_id>/messages`
+
+緊急停用 overlay 注入（marks 仍保留在 hub，只是這一輪不讀）：
+
+```sh
+AOH_OVERLAY_DISABLE=1 node packages/coding-agent/dist/cli.js -p "..." --session <sid>
+```
+
+AI agent 回歸測試（不必開 UI、不必摸 SQLite）：
+
+```sh
+# 單一 session 的完整健康狀態（一次回完）
+curl http://127.0.0.1:43180/api/assertions/session-summary/<sid>
+```
+
+8 個 scenario 的腳本式回歸文件見 [`tests/functional_overlay.md`](tests/functional_overlay.md)。
+
 ## Maintenance
 
 If older traces were created before run finalization existed, use the backfill command to repair stale `running` rows:
