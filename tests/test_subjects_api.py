@@ -1,4 +1,15 @@
+from datetime import datetime, timedelta, timezone
+
 from app.storage.repositories import Repository
+
+
+def _iso_days_ago(days: float) -> str:
+    """Return an ISO-8601 UTC timestamp ``days`` days before now.
+
+    Used so date-window assertions (e.g. ``?days=7``) stay valid as the
+    real clock advances instead of going stale on a fixed calendar date.
+    """
+    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _insert_run(repo: Repository, *, trace_id: str, run_id: str, user_hash: str, agent_id: str, channel: str, started_at: str, status: str = "ok") -> None:
@@ -78,11 +89,16 @@ def test_subject_user_traces_returns_recent_traces_with_llm_rollups(app_client):
 
 def test_subject_user_traces_filters_by_agent_channel_status_and_days(app_client):
     repo = Repository.from_env()
-    _insert_run(repo, trace_id="trace_keep", run_id="run_keep", user_hash="istale", agent_id="hermes", channel="discord", started_at="2026-05-31T10:00:00Z", status="ok")
-    _insert_run(repo, trace_id="trace_wrong_agent", run_id="run_wrong_agent", user_hash="istale", agent_id="openclaw", channel="discord", started_at="2026-05-31T09:00:00Z", status="ok")
-    _insert_run(repo, trace_id="trace_wrong_channel", run_id="run_wrong_channel", user_hash="istale", agent_id="hermes", channel="desktop", started_at="2026-05-31T08:00:00Z", status="ok")
-    _insert_run(repo, trace_id="trace_wrong_status", run_id="run_wrong_status", user_hash="istale", agent_id="hermes", channel="discord", started_at="2026-05-31T07:00:00Z", status="error")
-    _insert_run(repo, trace_id="trace_too_old", run_id="run_too_old", user_hash="istale", agent_id="hermes", channel="discord", started_at="2026-05-20T10:00:00Z", status="ok")
+    # Dates are relative to "now" so the ``?days=7`` window assertion below
+    # stays valid as the real clock advances. ``recent`` is well inside the
+    # window; ``too_old`` is well outside.
+    recent = _iso_days_ago(1)
+    too_old = _iso_days_ago(14)
+    _insert_run(repo, trace_id="trace_keep", run_id="run_keep", user_hash="istale", agent_id="hermes", channel="discord", started_at=recent, status="ok")
+    _insert_run(repo, trace_id="trace_wrong_agent", run_id="run_wrong_agent", user_hash="istale", agent_id="openclaw", channel="discord", started_at=recent, status="ok")
+    _insert_run(repo, trace_id="trace_wrong_channel", run_id="run_wrong_channel", user_hash="istale", agent_id="hermes", channel="desktop", started_at=recent, status="ok")
+    _insert_run(repo, trace_id="trace_wrong_status", run_id="run_wrong_status", user_hash="istale", agent_id="hermes", channel="discord", started_at=recent, status="error")
+    _insert_run(repo, trace_id="trace_too_old", run_id="run_too_old", user_hash="istale", agent_id="hermes", channel="discord", started_at=too_old, status="ok")
 
     response = app_client.get("/api/subjects/users/istale/traces?agent_id=hermes&channel=discord&status=ok&days=7")
 
