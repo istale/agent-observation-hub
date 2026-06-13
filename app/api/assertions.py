@@ -199,6 +199,12 @@ def payload_inspect(trace_id: str) -> dict[str, Any]:
         "trace_id": trace_id,
         "payload_message_count": len(messages),
         "first_system_msg_chars": len(first_system_content),
+        # Truncated raw system content so AI-driven regression can grep
+        # for skill names, annotations, custom markers, etc. without
+        # needing a separate raw payload endpoint. 4 KB is enough to
+        # span a typical agent prompt + skills block; full body is in
+        # the raw event payload if needed.
+        "first_system_msg_excerpt": first_system_content[:4096],
         "annotation_in_system_prompt": annotation_present,
         "annotation_mentions": annotation_mentions,
         "tombstoned": tombstoned,
